@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>동선이 · 대한민국</title>
+<meta name="theme-color" content="#0b1220" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+:root{
+  --bg:#0a0e17;--card:rgba(22,31,49,.82);--card-s:rgba(28,39,64,.9);
+  --line:rgba(255,255,255,.10);--line2:rgba(255,255,255,.18);
+  --tx:#f5f8fc;--tx2:#a3b4cd;--tx3:#6b7c97;
+  --accent:#5a93ff;--accent-d:#1d3a6b;
+  --ok:#3fe39a;--ok-bg:rgba(63,227,154,.14);--warn:#ffbf5e;--warn-bg:rgba(255,191,94,.14);
+  --danger:#ff7a7a;--danger-bg:rgba(255,122,122,.14);--rain:#7cb6ff;--rain-bg:rgba(124,182,255,.16);
+  --r:14px;--r-lg:20px;--r-sm:10px;--max:440px;--safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:'Pretendard',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--tx);-webkit-font-smoothing:antialiased;line-height:1.5;overscroll-behavior-y:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit}
+.sky{position:fixed;inset:0;z-index:0;transition:background 1.1s ease;background:var(--bg);overflow:hidden}
+.sky.clear{background:linear-gradient(180deg,#2056a0 0%,#163058 42%,#0a0e17 78%)}
+.sky.cloud{background:linear-gradient(180deg,#37475a 0%,#1b2433 48%,#0a0e17 82%)}
+.sky.rain{background:linear-gradient(180deg,#1d3a59 0%,#132640 48%,#080c14 84%)}
+.sky.night{background:linear-gradient(180deg,#2a2156 0%,#171436 42%,#080a14 82%)}
+.sky .fx{position:absolute;inset:0}
+.drop{position:absolute;top:-12%;width:2px;height:16px;border-radius:2px;background:linear-gradient(transparent,rgba(150,195,255,.75));animation:fall linear infinite}
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle ease-in-out infinite}
+.cloud{position:absolute;border-radius:50%;background:rgba(255,255,255,.07);filter:blur(14px);animation:drift ease-in-out infinite alternate}
+.sun{position:absolute;top:-46px;right:-30px;width:190px;height:190px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,120,.55),rgba(255,214,120,0) 68%);animation:sunpulse 5s ease-in-out infinite}
+.moon{position:absolute;top:26px;right:30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(210,220,255,.32),rgba(210,220,255,0) 66%)}
+@keyframes fall{to{transform:translateY(118vh)}}@keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}
+@keyframes drift{from{transform:translateX(-22px)}to{transform:translateX(22px)}}@keyframes sunpulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.85;transform:scale(1.07)}}
+.app{position:relative;z-index:1;max-width:var(--max);margin:0 auto;min-height:100dvh;background:transparent;padding-bottom:calc(80px + var(--safe-b))}
+.entering .anim1{animation:fadeUp .5s cubic-bezier(.2,.7,.3,1) both}
+.entering .card{animation:fadeUp .55s cubic-bezier(.2,.7,.3,1) both .05s}
+.entering .tl-item{animation:fadeUp .5s cubic-bezier(.2,.7,.3,1) both}
+.entering .tl-item:nth-child(2){animation-delay:.04s}.entering .tl-item:nth-child(3){animation-delay:.08s}
+.entering .tl-item:nth-child(4){animation-delay:.12s}.entering .tl-item:nth-child(5){animation-delay:.16s}.entering .tl-item:nth-child(n+6){animation-delay:.2s}
+.entering .added{animation:fadeUp .45s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.destbar{padding:10px 14px 0;display:flex;align-items:center;gap:8px}
+.destbtn{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;background:rgba(255,255,255,.12);border:1px solid var(--line2);border-radius:999px;padding:8px 15px;color:var(--tx);backdrop-filter:blur(4px)}
+.destbtn:active{transform:scale(.97)}
+.modesel{display:flex;gap:4px;margin-left:auto}
+.modesel button{width:40px;height:34px;border-radius:9px;background:var(--card);border:1px solid var(--line);font-size:16px;backdrop-filter:blur(4px)}
+.modesel button.on{background:var(--accent);border-color:var(--accent)}
+.days{display:flex;gap:8px;overflow-x:auto;padding:10px 14px 0}.days::-webkit-scrollbar{display:none}
+.day-chip{flex:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px 13px;color:var(--tx2);font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:1px;backdrop-filter:blur(6px)}
+.day-chip small{font-weight:400;font-size:10px;color:var(--tx3)}
+.day-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}.day-chip.on small{color:rgba(255,255,255,.85)}
+.mood{padding:8px 18px 6px;background:linear-gradient(180deg,rgba(8,12,20,.18),transparent)}
+.statusbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pill{font-size:12px;background:rgba(255,255,255,.12);border-radius:999px;padding:4px 11px;white-space:nowrap;backdrop-filter:blur(4px)}
+.wx{display:flex;align-items:center;gap:6px;font-size:13px;color:#e3edfb}.wx b{font-weight:600}
+.hero{display:flex;flex-direction:column;align-items:center;padding:6px 0 2px}
+.say{font-size:13px;color:#dce7f8;background:rgba(255,255,255,.1);padding:6px 14px;border-radius:999px;margin-top:-2px;backdrop-filter:blur(4px);animation:fadeUp .5s both}
+.clock{margin-top:8px;text-align:center}
+.clock .t{font-size:44px;font-weight:700;letter-spacing:-1.5px;line-height:1;background:linear-gradient(90deg,#cfe2ff,#fff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.clock .d{font-size:13px;color:#b9c7de;margin-top:4px}
+.mascot{width:104px;height:118px;display:block;overflow:visible;animation:pop .55s cubic-bezier(.2,1.5,.4,1) both}
+.mascot.mini{width:52px;height:60px}
+.mascot .body{animation:floaty 3.4s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+.mascot.walk .body{animation:walk .52s ease-in-out infinite}
+.mascot .eyes{animation:blink 4.4s infinite;transform-box:fill-box;transform-origin:50% 50%}
+.mascot .needle{animation:spin 7s linear infinite;transform-box:fill-box;transform-origin:50% 50%}
+.mascot .umb{animation:sway 2.8s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 92%}
+.mascot .spark{animation:tw 1.9s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}.mascot .spark.b{animation-delay:.7s}
+.mascot .heart{animation:hb .9s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 50%}
+.mascot .drool{animation:drip 2.2s ease-in-out infinite}.mascot .zzz{animation:rise 3s ease-in-out infinite}
+@keyframes pop{0%{opacity:0;transform:scale(.2) translateY(14px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}@keyframes walk{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@keyframes blink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}@keyframes tw{0%,100%{opacity:.3;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}@keyframes drip{0%,55%{transform:translateY(0);opacity:.9}80%{transform:translateY(4px);opacity:1}100%{transform:translateY(8px);opacity:0}}
+@keyframes rise{0%{opacity:0;transform:translateY(6px)}40%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+.m-aura{display:inline-block;position:relative}
+.m-aura::before{content:"";position:absolute;inset:-16px;border-radius:50%;z-index:-1;background:radial-gradient(circle,var(--g,rgba(90,147,255,.5)),transparent 62%);animation:auraPulse 3.2s ease-in-out infinite}
+@keyframes auraPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.85;transform:scale(1.1)}}
+.banner{margin:10px 14px 0;border-radius:var(--r);padding:11px 13px;display:flex;align-items:center;gap:10px;font-size:13px;animation:bannerIn .45s cubic-bezier(.2,.8,.3,1) both;backdrop-filter:blur(6px)}
+.banner.rain{background:var(--rain-bg);color:#d6e8ff;border:1px solid rgba(124,182,255,.25)}
+.banner.warn{background:var(--warn-bg);color:#ffdca6;border:1px solid rgba(255,191,94,.25)}
+@keyframes bannerIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.banner .ic{font-size:18px;flex:none}.banner .msg{flex:1;line-height:1.4}
+.banner .act{font-size:12px;font-weight:600;border:1px solid var(--line2);border-radius:var(--r-sm);padding:6px 11px;white-space:nowrap;background:rgba(255,255,255,.08)}
+.wrap{padding:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--tx2);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.28)}
+.now-place{font-size:25px;font-weight:700;letter-spacing:-.4px}.now-sub{font-size:13px;color:var(--tx2);margin-top:3px}
+.badges{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;min-height:4px}
+.bdg{font-size:12px;font-weight:600;border-radius:var(--r-sm);padding:4px 9px}
+.bdg.ok{color:var(--ok);background:var(--ok-bg)}.bdg.warn{color:var(--warn);background:var(--warn-bg)}.bdg.danger{color:var(--danger);background:var(--danger-bg)}.bdg.mut{color:var(--tx3);background:rgba(255,255,255,.06)}
+.verify{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--tx3)}.verify a{color:var(--accent)}
+.count{margin-top:15px;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between}
+.count .lab{font-size:13px;color:var(--tx2)}.count .n{font-size:28px;font-weight:700;color:var(--accent)}
+.nextrow{margin-top:11px;display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:8px}.nextrow .l{display:flex;align-items:center;gap:6px;color:var(--tx2)}
+.arrive-btn{width:100%;margin-top:12px;height:44px;border-radius:var(--r);background:rgba(255,255,255,.06);border:1px dashed var(--line2);color:var(--tx);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:7px;transition:transform .08s}
+.arrive-btn:active{transform:scale(.98);background:rgba(90,147,255,.14)}
+.cta-row{display:flex;gap:10px;margin-top:14px}
+.cta{flex:1;height:52px;border-radius:var(--r);background:linear-gradient(135deg,#5a93ff,#3f78ee);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 6px 20px rgba(63,120,238,.35);transition:transform .08s}
+.cta:active{transform:scale(.97)}
+.cta.ghost{flex:none;width:52px;background:var(--card-s);color:var(--tx2);border:1px solid var(--line);box-shadow:none}
+.cta.sos{flex:none;width:52px;background:var(--card-s);color:var(--danger);border:1px solid var(--line);box-shadow:none}
+.sim{margin:14px;padding:12px 15px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(8px)}
+.sim .top{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--tx2);margin-bottom:9px}
+.sim input[type=range]{width:100%;accent-color:var(--accent)}.sim .live{font-weight:700;color:var(--accent)}
+.region-h{display:flex;align-items:center;gap:8px;margin:18px 2px 8px;font-size:13px;color:var(--tx2);font-weight:600}.region-h::after{content:"";flex:1;height:1px;background:var(--line)}
+.tl-item{display:flex;gap:12px;margin-bottom:10px}
+.tl-time{flex:none;width:46px;text-align:right;font-size:13px;font-weight:700;color:var(--tx);padding-top:14px}.tl-time small{display:block;font-weight:400;color:var(--tx3);font-size:11px}
+.tl-body{flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;backdrop-filter:blur(8px)}
+.tl-body.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 6px 18px rgba(63,120,238,.25)}.tl-body.done{opacity:.45}
+.tl-name{font-size:15px;font-weight:600;display:flex;align-items:center;gap:7px}
+.tl-meta{font-size:12px;color:var(--tx2);margin-top:4px;display:flex;flex-wrap:wrap;gap:8px}
+.tl-acts{display:flex;gap:6px;margin-top:10px}
+.tl-acts button{font-size:12px;color:var(--tx2);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r-sm);padding:6px 10px;display:flex;align-items:center;gap:5px}
+.tl-acts button.go{color:#d6e8ff;border-color:var(--accent-d);background:rgba(90,147,255,.14)}
+.move{display:flex;flex-direction:column;gap:4px;justify-content:center}
+.move button{width:30px;height:24px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:7px;color:var(--tx2);font-size:13px;display:flex;align-items:center;justify-content:center}.move button:active{background:var(--accent);color:#fff}
+.travel{font-size:11px;color:var(--tx3);margin:0 0 10px 58px;display:flex;align-items:center;gap:6px}.travel .ln{width:14px;height:1px;background:var(--line2)}
+.sec-title{font-size:16px;font-weight:700;margin:20px 2px 10px;display:flex;align-items:center;gap:8px}
+.field{margin-bottom:12px}.field label{display:block;font-size:12px;color:var(--tx2);margin-bottom:6px}
+.input,select.input{width:100%;height:44px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--tx);padding:0 13px;font-size:15px}
+.input:focus{outline:none;border-color:var(--accent)}
+select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23a3b4cd' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.row2{display:flex;gap:10px}.row2>*{flex:1}
+.checks{display:flex;flex-wrap:wrap;gap:7px}
+.ck{font-size:13px;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;padding:7px 12px;color:var(--tx2);transition:transform .08s}.ck:active{transform:scale(.95)}.ck.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn{height:48px;border-radius:var(--r);font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;transition:transform .08s}.btn:active{transform:scale(.98)}
+.btn.primary{background:linear-gradient(135deg,#5a93ff,#3f78ee);color:#fff;width:100%;box-shadow:0 6px 20px rgba(63,120,238,.32)}
+.btn.line{background:rgba(255,255,255,.05);border:1px solid var(--line2);color:var(--tx);width:100%}
+.added{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;margin-bottom:8px;backdrop-filter:blur(8px)}
+.added .i{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+.added .nm{flex:1;min-width:0}.added .nm b{font-size:14px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.added .nm span{font-size:12px;color:var(--tx2)}
+.added .del{color:var(--tx3);font-size:18px;padding:4px}
+.quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.quick button{font-size:13px;border:1px dashed var(--line2);border-radius:999px;padding:8px 13px;color:var(--tx2);background:transparent}.quick button:active{background:rgba(255,255,255,.06);transform:scale(.96)}
+.stepper{display:flex;align-items:center;gap:14px}
+.stepper button{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid var(--line2);color:var(--tx);font-size:20px;font-weight:600}
+.stepper .v{font-size:15px;font-weight:700;min-width:74px;text-align:center}
+.recbtn{display:flex;gap:8px;margin:2px 0 12px}
+.recbtn button{flex:1;height:44px;border-radius:var(--r);background:rgba(90,147,255,.12);border:1px solid var(--accent-d);color:#cfe2ff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px}.recbtn button:active{transform:scale(.98)}
+.onb{padding:24px 22px 50px;text-align:center;display:flex;flex-direction:column;align-items:center}
+#onbMascot{cursor:pointer;text-align:center}
+.bubble{position:relative;background:#fff;color:#15233c;font-size:15px;font-weight:600;line-height:1.55;padding:14px 18px;border-radius:18px;max-width:300px;margin-top:8px;box-shadow:0 10px 28px rgba(0,0,0,.28);animation:bubbleIn .35s cubic-bezier(.2,1.4,.4,1)}
+.bubble b{color:#2f6df0}.bubble::after{content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%);border:7px solid transparent;border-bottom-color:#fff;border-top:0}
+@keyframes bubbleIn{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.onb-dots{display:flex;gap:7px;margin:18px 0 16px}.onb-dots i{width:7px;height:7px;border-radius:50%;background:var(--line2);transition:.3s}.onb-dots i.on{background:var(--accent);width:20px;border-radius:5px}
+.assist{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.assist .ab{position:relative;background:rgba(90,147,255,.12);border:1px solid rgba(90,147,255,.25);color:#dce7f8;font-size:13px;line-height:1.5;padding:10px 13px;border-radius:14px;flex:1}
+.assist .ab::before{content:"";position:absolute;left:-7px;top:18px;border:6px solid transparent;border-right-color:rgba(90,147,255,.18);border-left:0}
+.tabbar{position:fixed;left:0;right:0;bottom:0;max-width:var(--max);margin:0 auto;background:rgba(10,14,23,.82);backdrop-filter:blur(16px);border-top:1px solid var(--line);display:flex;padding:8px 0 calc(8px + var(--safe-b));z-index:40}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--tx3);font-size:11px;padding:4px 0;transition:transform .1s}
+.tabbar button.on{color:var(--accent)}.tabbar button.on .ic{transform:translateY(-1px) scale(1.08)}.tabbar button .ic{font-size:21px;transition:transform .15s}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:none;align-items:flex-end;backdrop-filter:blur(2px)}
+.sheet-bg.open{display:flex;animation:fade .2s}@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;max-width:var(--max);margin:0 auto;background:#121a28;border-radius:24px 24px 0 0;padding:18px 16px calc(22px + var(--safe-b));max-height:86dvh;overflow:auto;border-top:1px solid var(--line2);animation:sheetUp .32s cubic-bezier(.2,.9,.3,1)}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet h3{margin:2px 0 14px;font-size:17px;font-weight:700}
+.poi{display:flex;align-items:center;gap:11px;padding:11px 6px;border-bottom:1px solid var(--line)}.poi:last-child{border-bottom:none}
+.poi .nm{flex:1}.poi .nm b{font-size:14px;font-weight:600}.poi .nm span{font-size:12px;color:var(--tx2);display:block}
+.poi .go{font-size:13px;color:#d6e8ff;background:rgba(90,147,255,.16);border:1px solid var(--accent-d);border-radius:var(--r-sm);padding:8px 12px}
+.poi .add{font-size:13px;color:#aef3d0;background:rgba(63,227,154,.14);border:1px solid rgba(63,227,154,.3);border-radius:var(--r-sm);padding:8px 12px}
+.kmap{width:100%;max-width:280px;margin:4px auto 8px;display:block}
+.kmap .prov{cursor:pointer;transition:opacity .15s;stroke:rgba(255,255,255,.28);stroke-width:1.2}
+.kmap .prov:active{opacity:.75}
+.kmap .prov.sel{stroke:#fff;stroke-width:2.6}
+.citychips button.cur{background:var(--accent);border-color:var(--accent);color:#fff}
+.kmap text{font-size:13px;font-weight:700;fill:#fff;pointer-events:none;text-anchor:middle}
+.citychips{display:flex;flex-wrap:wrap;gap:9px;margin-top:4px}
+.citychips button{font-size:14px;border:1px solid var(--line2);background:rgba(255,255,255,.05);border-radius:12px;padding:11px 15px;color:var(--tx);font-weight:600}
+.citychips button.on{background:var(--accent);border-color:var(--accent)}.citychips button:active{transform:scale(.96)}
+.toast{position:fixed;left:50%;bottom:98px;transform:translateX(-50%) translateY(8px);background:#fff;color:#111;font-size:13px;font-weight:700;padding:11px 18px;border-radius:999px;z-index:80;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.muted{color:var(--tx3);font-size:12px;line-height:1.6}.hide{display:none !important}
+.icbtn{color:var(--tx2);font-size:20px;padding:6px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 0}.topbar h2{font-size:19px;font-weight:700;margin:0}
+.confetti{position:fixed;inset:0;z-index:70;pointer-events:none;overflow:hidden}
+.confetti i{position:absolute;top:-18px;border-radius:2px;animation:confFall linear forwards}
+@keyframes confFall{0%{transform:translate3d(0,-20px,0) rotate(0);opacity:1}100%{transform:translate3d(var(--dx,0),112vh,0) rotate(720deg);opacity:.85}}
+.checkpop{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.checkpop .ring{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#3fe39a,#2bbf80);color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 34px rgba(63,227,154,.45);animation:checkPop 1.3s cubic-bezier(.2,1.5,.4,1) forwards}
+@keyframes checkPop{0%{transform:scale(0)}40%{transform:scale(1)}72%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001s !important}}
+</style>
+</head>
+<body>
+<div class="sky" id="sky"><div class="fx" id="fx"></div></div>
+<div class="app" id="app"></div>
+<div class="sheet-bg" id="sheetBg" onclick="if(event.target===this)closeSheet()"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<nav class="tabbar" id="tabbar">
+  <button data-screen="home" class="on"><span class="ic">🏠</span>홈</button>
+  <button data-screen="timeline"><span class="ic">🗺️</span>타임라인</button>
+  <button data-screen="edit"><span class="ic">✏️</span>편집</button>
+</nav>
+<script>
+/* ====================================================================
+   동선이 v3 · 전국 멀티데이 여행 비서
+   ==================================================================== */
+const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
+const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
+const SIDO2REGION={"서울특별시":"수도권","인천광역시":"수도권","경기도":"수도권","강원도":"강원","충청북도":"충북","충청남도":"충남","대전광역시":"충남","세종특별자치시":"충남","전라북도":"전북","전라남도":"전남","광주광역시":"전남","경상북도":"경북","대구광역시":"경북","경상남도":"경남","부산광역시":"경남","울산광역시":"경남","제주특별자치도":"제주"};
+const CODE2REGION={"11":"수도권","23":"수도권","31":"수도권","32":"강원","33":"충북","34":"충남","25":"충남","29":"충남","35":"전북","36":"전남","24":"전남","37":"경북","22":"경북","38":"경남","21":"경남","26":"경남","39":"제주"};
+const METRO_SKIP={"11":1,"21":1,"22":1,"23":1,"24":1,"25":1,"26":1};
+const METROS={"서울":{lat:37.5665,lng:126.978,region:"수도권"},"부산":{lat:35.18,lng:129.075,region:"경남"},"대구":{lat:35.8714,lng:128.6014,region:"경북"},"인천":{lat:37.4563,lng:126.7052,region:"수도권"},"광주":{lat:35.1595,lng:126.8526,region:"전남"},"대전":{lat:36.3504,lng:127.3845,region:"충남"},"울산":{lat:35.5384,lng:129.3114,region:"경남"}};
+const POPULAR=["서울","부산","제주시","서귀포시","강릉시","속초시","경주시","전주시","여수시","통영시","수원시","가평군","춘천시","대구","인천","대전","광주","울산","평창군","순천시","목포시","안동시","포항시","거제시","남해군","담양군"];
+const CURATED_ALIAS={"경주시":"경주","강릉시":"강릉","전주시":"전주","여수시":"여수","속초시":"속초","통영시":"통영","가평군":"가평","춘천시":"춘천","수원시":"수원","평창군":"평창","청주시":"청주","공주시":"공주","순천시":"순천","목포시":"목포","안동시":"안동","포항시":"포항","서귀포시":"서귀포"};
+/* 도시: 중심좌표 + 권역(area→좌표) + 빠른추가 seed. 미상세 도시는 시내 1권역 */
+function A(lat,lng){return {lat,lng};}
+const CITY={
+ "부산":{prov:"경상",lat:35.18,lng:129.08,areas:{"해운대":A(35.1631,129.1639),"광안리":A(35.1532,129.1186),"서면":A(35.1577,129.0594),"남포·광복":A(35.0978,129.0345),"부산역·초량":A(35.1151,129.0413),"영도·태종대":A(35.0782,129.0455),"감천·송도":A(35.0975,129.0107),"센텀·수영":A(35.169,129.13),"기장":A(35.2445,129.2222),"김해공항":A(35.1795,128.9382)},
+   seed:[["해운대 해수욕장","see","해운대"],["광안리 해수욕장","see","광안리"],["감천문화마을","see","감천·송도"],["태종대","see","영도·태종대"],["용두산공원·부산타워","see","남포·광복"],["자갈치시장","eat","남포·광복"],["서면 돼지국밥거리","eat","서면"],["해동용궁사","see","기장"]]},
+ "서울":{prov:"수도권",lat:37.5665,lng:126.978,areas:{"종로·광화문":A(37.572,126.991),"명동·중구":A(37.563,126.985),"홍대·합정":A(37.556,126.922),"강남·역삼":A(37.498,127.028),"성수·서울숲":A(37.544,127.056),"잠실·송파":A(37.513,127.1),"이태원·용산":A(37.534,126.994),"여의도":A(37.521,126.924)},
+   seed:[["경복궁","see","종로·광화문"],["북촌한옥마을","see","종로·광화문"],["명동거리","see","명동·중구"],["광장시장","eat","종로·광화문"],["홍대거리","see","홍대·합정"],["남산서울타워","see","이태원·용산"],["성수 카페거리","eat","성수·서울숲"],["롯데월드","see","잠실·송파"]]},
+ "제주시":{prov:"제주",lat:33.4996,lng:126.5312,areas:{"제주시내":A(33.5,126.52),"애월":A(33.46,126.31),"함덕":A(33.54,126.67),"성산":A(33.46,126.94),"한림":A(33.41,126.27)},
+   seed:[["성산일출봉","see","성산"],["협재해변","see","한림"],["동문시장","eat","제주시내"],["애월 한담해안","see","애월"],["함덕해변","see","함덕"],["오설록 티뮤지엄","see","한림"],["흑돼지거리","eat","제주시내"]]},
+ "서귀포":{prov:"제주",lat:33.2541,lng:126.56,areas:{"서귀포시내":A(33.254,126.56),"중문":A(33.246,126.412),"성산":A(33.46,126.94)},
+   seed:[["천지연폭포","see","서귀포시내"],["중문색달해변","see","중문"],["올레시장","eat","서귀포시내"],["주상절리","see","중문"],["카멜리아힐","see","중문"]]},
+ "경주":{prov:"경상",lat:35.8562,lng:129.2247,areas:{"황리단길·대릉원":A(35.84,129.21),"불국사·보문":A(35.79,129.33),"동궁·월지":A(35.834,129.226)},
+   seed:[["불국사","see","불국사·보문"],["첨성대","see","황리단길·대릉원"],["동궁과 월지","see","동궁·월지"],["황리단길","eat","황리단길·대릉원"],["대릉원","see","황리단길·대릉원"],["석굴암","see","불국사·보문"]]},
+ "강릉":{prov:"강원",lat:37.7519,lng:128.8761,areas:{"강릉시내":A(37.75,128.9),"안목·커피거리":A(37.77,128.95),"경포":A(37.8,128.9),"정동진":A(37.69,129.03)},
+   seed:[["경포해변","see","경포"],["안목 커피거리","eat","안목·커피거리"],["오죽헌","see","강릉시내"],["정동진","see","정동진"],["초당순두부마을","eat","강릉시내"],["강문해변","see","경포"]]},
+ "전주":{prov:"전라",lat:35.8242,lng:127.148,areas:{"한옥마을":A(35.815,127.153),"전주시내":A(35.82,127.14),"객리단길":A(35.82,127.13)},
+   seed:[["전주한옥마을","see","한옥마을"],["경기전","see","한옥마을"],["남부시장","eat","한옥마을"],["객리단길","eat","객리단길"],["전동성당","see","한옥마을"],["콩나물국밥거리","eat","전주시내"]]},
+ "여수":{prov:"전라",lat:34.7604,lng:127.6622,areas:{"여수시내·이순신광장":A(34.74,127.74),"돌산·오동도":A(34.74,127.76),"웅천":A(34.73,127.69)},
+   seed:[["오동도","see","돌산·오동도"],["돌산공원","see","돌산·오동도"],["여수해상케이블카","see","돌산·오동도"],["이순신광장","see","여수시내·이순신광장"],["낭만포차거리","eat","여수시내·이순신광장"],["향일암","see","돌산·오동도"]]},
+ "속초":{prov:"강원",lat:38.207,lng:128.5918,areas:{"속초시내":A(38.21,128.59),"대포항":A(38.18,128.6),"설악":A(38.17,128.47)},
+   seed:[["속초중앙시장","eat","속초시내"],["대포항","eat","대포항"],["설악산","see","설악"],["영금정","see","속초시내"],["아바이마을","eat","속초시내"],["외옹치 바다향기로","see","속초시내"]]},
+ "대구":{prov:"경상",lat:35.8714,lng:128.6014,areas:{"동성로·중구":A(35.869,128.595),"수성못":A(35.83,128.62),"김광석거리":A(35.866,128.61)},
+   seed:[["서문시장","eat","동성로·중구"],["김광석다시그리기길","see","김광석거리"],["동성로","see","동성로·중구"],["수성못","see","수성못"],["앞산전망대","see","수성못"],["이월드","see","동성로·중구"]]},
+ "인천":{prov:"수도권",lat:37.4563,lng:126.7052,areas:{"차이나타운·월미도":A(37.47,126.62),"송도":A(37.38,126.66),"강화":A(37.74,126.49)},
+   seed:[["차이나타운","eat","차이나타운·월미도"],["월미도","see","차이나타운·월미도"],["송도센트럴파크","see","송도"],["소래포구","eat","송도"],["강화도","see","강화"],["인천대교 전망","see","송도"]]},
+ "통영":{prov:"경상",lat:34.8544,lng:128.4331,areas:{"통영시내·강구안":A(34.845,128.424),"미륵도":A(34.81,128.42)},
+   seed:[["동피랑마을","see","통영시내·강구안"],["통영중앙시장","eat","통영시내·강구안"],["미륵산 케이블카","see","미륵도"],["강구안","see","통영시내·강구안"],["충무김밥거리","eat","통영시내·강구안"],["달아공원","see","미륵도"]]},
+ "가평":{prov:"수도권",lat:37.8315,lng:127.5095,areas:{"가평":A(37.8315,127.5095)},
+   seed:[["남이섬","see","가평"],["쁘띠프랑스","see","가평"],["아침고요수목원","see","가평"],["자라섬","see","가평"],["레일바이크","see","가평"]]},
+ "춘천":{prov:"강원",lat:37.8813,lng:127.73,areas:{"춘천":A(37.8813,127.73)},
+   seed:[["소양강 스카이워크","see","춘천"],["명동 닭갈비골목","eat","춘천"],["남이섬","see","춘천"],["김유정역","see","춘천"],["의암호","see","춘천"]]},
+ "대전":{prov:"충청",lat:36.3504,lng:127.3845,areas:{"둔산·시청":A(36.35,127.38),"유성":A(36.36,127.34)},
+   seed:[["성심당","eat","둔산·시청"],["한밭수목원","see","둔산·시청"],["엑스포과학공원","see","둔산·시청"],["유성온천","see","유성"],["대청호 오백리길","see","유성"]]},
+ "수원":{prov:"수도권",lat:37.2636,lng:127.0286,areas:{"수원 행궁동":A(37.282,127.013)},seed:[["수원화성","see","수원 행궁동"],["행궁동 카페거리","eat","수원 행궁동"],["화성행궁","see","수원 행궁동"],["통닭거리","eat","수원 행궁동"]]},
+ "평창":{prov:"강원",lat:37.3705,lng:128.3903,areas:{"평창":A(37.3705,128.3903)},seed:[["대관령 양떼목장","see","평창"],["오대산 월정사","see","평창"],["알펜시아","see","평창"]]},
+ "청주":{prov:"충청",lat:36.6424,lng:127.489,areas:{"청주":A(36.6424,127.489)},seed:[["청남대","see","청주"],["수암골","see","청주"],["상당산성","see","청주"]]},
+ "공주":{prov:"충청",lat:36.4466,lng:127.119,areas:{"공주":A(36.4466,127.119)},seed:[["공산성","see","공주"],["무령왕릉","see","공주"],["국립공주박물관","see","공주"]]},
+ "순천":{prov:"전라",lat:34.9506,lng:127.4872,areas:{"순천":A(34.9506,127.4872)},seed:[["순천만국가정원","see","순천"],["순천만습지","see","순천"],["드라마촬영장","see","순천"]]},
+ "목포":{prov:"전라",lat:34.8118,lng:126.3922,areas:{"목포":A(34.8118,126.3922)},seed:[["갓바위","see","목포"],["유달산","see","목포"],["목포근대역사관","see","목포"],["목포해상케이블카","see","목포"]]},
+ "안동":{prov:"경상",lat:36.5684,lng:128.7294,areas:{"안동":A(36.5684,128.7294)},seed:[["하회마을","see","안동"],["월영교","see","안동"],["안동찜닭골목","eat","안동"],["부용대","see","안동"]]},
+ "포항":{prov:"경상",lat:36.019,lng:129.3435,areas:{"포항":A(36.019,129.3435)},seed:[["호미곶","see","포항"],["영일대해수욕장","see","포항"],["죽도시장","eat","포항"],["스페이스워크","see","포항"]]},
+};
+/* 부산 권역 보정 이동시간(분) — 부산일 때만 적용 */
+const BUSAN_T={"해운대|서면":38,"해운대|광안리":18,"해운대|남포·광복":58,"해운대|센텀·수영":12,"해운대|기장":30,"광안리|서면":25,"광안리|남포·광복":45,"광안리|센텀·수영":12,"서면|남포·광복":20,"서면|부산역·초량":12,"남포·광복|영도·태종대":20,"남포·광복|감천·송도":24,"남포·광복|부산역·초량":10,"김해공항|서면":50,"김해공항|해운대":70,"김해공항|남포·광복":55};
+const INDOOR={"서면":["롯데백화점 서면점","서면 지하상가"],"남포·광복":["부산근현대역사관","롯데백화점 광복점"],"해운대":["신세계 센텀시티","부산 아쿠아리움"],"광안리":["광안리 카페거리","밀락더마켓"],"종로·광화문":["국립현대미술관 서울관","교보문고 광화문"],"명동·중구":["롯데백화점 명동","명동 지하상가"],"홍대·합정":["AK& 홍대","교보문고 합정"],"강남·역삼":["코엑스몰","강남 지하상가"],"제주시내":["제주민속자연사박물관","아라리오뮤지엄"]};
+const TYPE_META={see:{ic:"🗺️",label:"가고싶은곳",color:"#5a93ff",dur:75},eat:{ic:"🍜",label:"맛집",color:"#ff9f43",dur:70},stay:{ic:"🏨",label:"숙소",color:"#a78bfa",dur:0},air:{ic:"🛬",label:"도착",color:"#3fe39a",dur:0}};
+const MODES={transit:{ic:"🚇",label:"대중교통",spd:17,buf:12,minT:15,same:12},walk:{ic:"🚶",label:"도보",spd:4.5,buf:3,minT:5,same:9},car:{ic:"🚗",label:"자동차",spd:28,buf:8,minT:8,same:8}};
+
+/* ---------- 상태 ---------- */
+let TRIP=null, screen="home", simMinutes=null, curDay=0;
+let lastSkyMood=null, lastMascot="", CURSTEP=null;
+let celebrating=false, lastRealCelebIdx=-1, celebTimer=null, onbStep=0, onbDone=false;
+let KAKAO_KEY="", ODSAY_KEY="", kakaoReady=false;
+const ODCACHE={}, odPending={}, WXCACHE={};
+let KMAP=null; const ALLCITY={}; let REGION_CITIES={};
+
+function blankTrip(){ return {v:3,dest:{city:"부산",region:"경남"},mode:"transit",startDate:todayStr(),nights:1,meal:{lunch:"12:00",dinner:"18:00"},arrival:null,days:[{start:"10:00",stay:null,places:[]},{start:"09:00",stay:null,places:[]}]}; }
+function migrate(t){
+  if(!t) return null;
+  if(t.v===3){ if(!t.dest) t.dest={city:"부산",region:"경남"}; if(!t.meal) t.meal={lunch:"12:00",dinner:"18:00"}; if(!t.mode) t.mode="transit"; return t; }
+  if(t.v===2||t.days){ t.v=3; if(!t.dest) t.dest={city:"부산",region:"경남"}; if(!t.meal) t.meal={lunch:"12:00",dinner:"18:00"}; if(!t.mode) t.mode="transit";
+    const ba=CITY["부산"].areas;
+    const fix=o=>{ if(o){ o.area=o.area||o.region; o.city=o.city||"부산"; const c=ba[o.area]; if(c&&!o.lat){o.lat=c.lat;o.lng=c.lng;} } };
+    (t.days||[]).forEach(d=>{ (d.places||[]).forEach(fix); fix(d.stay); }); fix(t.arrival); return t; }
+  if(t.places){ const v2={v:2,startDate:t.date||todayStr(),nights:0,meal:{lunch:"12:00",dinner:"18:00"},arrival:t.air||null,days:[{start:t.start||"10:00",stay:t.stay||null,places:(t.places||[]).map(p=>({...p,meal:p.meal||null}))}]}; return migrate(v2); }
+  return null;
+}
+
+/* ---------- 도시 헬퍼 ---------- */
+function dest(){ return TRIP.dest.city; }
+function curatedFor(name){ if(CITY[name]) return CITY[name]; if(CURATED_ALIAS[name]&&CITY[CURATED_ALIAS[name]]) return CITY[CURATED_ALIAS[name]]; return null; }
+function cityData(name){
+  const c=curatedFor(name), a=ALLCITY[name];
+  if(c){ if(a){ c.lat=a.lat; c.lng=a.lng; c.region=a.region; } if(!c.region) c.region=c.prov; return c; }
+  if(a) return {region:a.region,lat:a.lat,lng:a.lng,areas:{[name.replace(/(특별자치시|광역시|특별시|시|군)$/,"")+" 시내"]:{lat:a.lat,lng:a.lng}},seed:[]};
+  return CITY["부산"];
+}
+function cityObj(){ return cityData(dest()); }
+function cityRegion(name){ return cityData(name).region; }
+function areasOf(){ return cityObj().areas; }
+function areaKeys(){ return Object.keys(areasOf()); }
+function areaCoords(area){ const a=areasOf()[area]; return a?{lat:a.lat,lng:a.lng}:{lat:cityObj().lat,lng:cityObj().lng}; }
+function seedOf(){ return cityObj().seed||[]; }
+function geoCentroid(g){ const ring=g.type==="Polygon"?g.coordinates[0]:g.coordinates[0][0]; let sx=0,sy=0; ring.forEach(c=>{sx+=c[0];sy+=c[1];}); return [sx/ring.length,sy/ring.length]; }
+async function loadCities(){
+  try{ const c=localStorage.getItem("dongseoni_cities_v1"); if(c){ Object.assign(ALLCITY,JSON.parse(c)); buildRegionCities(); patchCuratedRegions(); return; } }catch(e){}
+  try{
+    const r=await fetch("https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/kostat/2013/json/skorea_municipalities_geo_simple.json");
+    const j=await r.json(); const acc={};
+    j.features.forEach(f=>{ const code=String(f.properties.code), pref=code.slice(0,2); if(METRO_SKIP[pref]) return;
+      const nm=f.properties.name.replace(/시.+구$/,"시"); const ct=geoCentroid(f.geometry);
+      const a=acc[nm]||(acc[nm]={sx:0,sy:0,n:0,pref}); a.sx+=ct[0]; a.sy+=ct[1]; a.n++; });
+    Object.keys(acc).forEach(nm=>{ const a=acc[nm]; ALLCITY[nm]={lat:+(a.sy/a.n).toFixed(4),lng:+(a.sx/a.n).toFixed(4),region:CODE2REGION[a.pref]}; });
+    for(const m in METROS) ALLCITY[m]=METROS[m];
+    localStorage.setItem("dongseoni_cities_v1",JSON.stringify(ALLCITY));
+  }catch(e){ for(const m in METROS) ALLCITY[m]=METROS[m]; }
+  buildRegionCities(); patchCuratedRegions();
+}
+function patchCuratedRegions(){ for(const nm in CITY){ if(ALLCITY[nm]) CITY[nm].region=ALLCITY[nm].region; } }
+function buildRegionCities(){ REGION_CITIES={}; for(const nm in ALLCITY){ const rg=ALLCITY[nm].region; if(!rg) continue; (REGION_CITIES[rg]=REGION_CITIES[rg]||[]).push(nm); }
+  for(const rg in REGION_CITIES){ REGION_CITIES[rg].sort((a,b)=>{ const ra=POPULAR.indexOf(a),rb=POPULAR.indexOf(b),xa=ra<0?999:ra,xb=rb<0?999:rb; return xa!==xb?xa-xb:a.localeCompare(b,"ko"); }); } }
+
+/* ---------- 유틸 ---------- */
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function pad(n){ return String(n).padStart(2,"0"); }
+function hmToMin(s){ if(!s) return null; const [h,m]=s.split(":").map(Number); return h*60+m; }
+function minToHM(m){ m=((m%1440)+1440)%1440; return pad(Math.floor(m/60))+":"+pad(m%60); }
+function haversine(a,b){ const Rr=6371,toR=x=>x*Math.PI/180; const dLat=toR(b.lat-a.lat),dLng=toR(b.lng-a.lng); const s=Math.sin(dLat/2)**2+Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2; return 2*Rr*Math.asin(Math.sqrt(s)); }
+function escapeHtml(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function daysCount(){ return (TRIP?TRIP.nights:0)+1; }
+function dayDateStr(i){ const d=new Date(TRIP.startDate+"T00:00:00"); d.setDate(d.getDate()+i); return d.toISOString().slice(0,10); }
+function curDate(){ return dayDateStr(curDay); }
+function isSelToday(){ return curDate()===todayStr(); }
+function nowMinutes(){ if(simMinutes!=null) return simMinutes; if(TRIP&&!isSelToday()) return hmToMin(TRIP.days[curDay].start)??600; const d=new Date(); return d.getHours()*60+d.getMinutes(); }
+
+/* ---------- 직렬화 ---------- */
+function encodeTrip(t){ try{ return btoa(unescape(encodeURIComponent(JSON.stringify(t)))); }catch(e){ return ""; } }
+function decodeTrip(s){ try{ return JSON.parse(decodeURIComponent(escape(atob(s)))); }catch(e){ return null; } }
+function save(){ if(!TRIP) return; localStorage.setItem("dongseoni_trip",JSON.stringify(TRIP)); history.replaceState(null,"","#t="+encodeTrip(TRIP)); }
+function load(){ const m=location.hash.match(/#t=(.+)$/); if(m){ const t=migrate(decodeTrip(m[1])); if(t) return t; } const ls=localStorage.getItem("dongseoni_trip"); if(ls){ try{ return migrate(JSON.parse(ls)); }catch(e){} } return null; }
+
+/* ---------- 끼니 ---------- */
+function effAnchor(p){ if(p.anchor) return p.anchor; if(p.meal&&TRIP.meal&&TRIP.meal[p.meal]) return TRIP.meal[p.meal]; return null; }
+
+/* ---------- 이동시간(좌표 기반 + 부산보정 + ODsay) ---------- */
+function ck(n){ return (n.lat||0).toFixed(3)+","+(n.lng||0).toFixed(3); }
+function busanT(a,b){ if(BUSAN_T[a+"|"+b]!=null) return BUSAN_T[a+"|"+b]; if(BUSAN_T[b+"|"+a]!=null) return BUSAN_T[b+"|"+a]; return null; }
+function transit(a,b){
+  if(!a||!b) return 0; const mode=(TRIP&&TRIP.mode)||"transit", M=MODES[mode];
+  if(a.area===b.area && a.city===b.city) return M.same;
+  if(a.lat&&b.lat){
+    if(mode==="transit"){
+      const k=ck(a)+">"+ck(b), k2=ck(b)+">"+ck(a);
+      if(ODCACHE[k]!=null) return ODCACHE[k]; if(ODCACHE[k2]!=null) return ODCACHE[k2];
+      if(ODSAY_KEY && !odPending[k]){ odPending[k]=true; fetchOdsay(a,b,k); }
+      if(a.city==="부산"&&b.city==="부산"){ const t=busanT(a.area,b.area); if(t!=null) return t; }
+    }
+    return Math.max(M.minT, Math.round(haversine(a,b)/M.spd*60)+M.buf);
+  }
+  return 30;
+}
+async function fetchOdsay(a,b,k){
+  const url=`https://api.odsay.com/v1/api/searchPubTransPath?SX=${a.lng}&SY=${a.lat}&EX=${b.lng}&EY=${b.lat}&apiKey=${encodeURIComponent(ODSAY_KEY)}`;
+  try{ const r=await fetch(url); const j=await r.json(); const t=j&&j.result&&j.result.path&&j.result.path[0]&&j.result.path[0].info&&j.result.path[0].info.totalTime; if(t){ ODCACHE[k]=t+8; if(screen!=="edit"&&document.getElementById("app")) render(); } }catch(e){}
+}
+
+/* ---------- 스케줄(하루) ---------- */
+function buildSteps(di){
+  di=(di==null)?curDay:di; const day=TRIP&&TRIP.days[di]; if(!day) return [];
+  const steps=[]; let cur=hmToMin(day.start)??600;
+  let prev = di>0 ? TRIP.days[di-1].stay : (TRIP.arrival||null);
+  if(di===0 && TRIP.arrival){ const t=hmToMin(TRIP.arrival.time)??cur; cur=Math.max(cur,t);
+    steps.push({kind:"air",name:TRIP.arrival.name||"도착",area:TRIP.arrival.area,city:TRIP.arrival.city,lat:TRIP.arrival.lat,lng:TRIP.arrival.lng,arrive:t,depart:cur,place:null}); prev=TRIP.arrival; }
+  day.places.forEach(p=>{ const tv=transit(prev,p); let arrive=cur+tv; const an=effAnchor(p); if(an){ const a=hmToMin(an); if(a!=null&&a>arrive) arrive=a; }
+    const dur=p.dur??TYPE_META[p.type]?.dur??60; const depart=arrive+dur;
+    steps.push({kind:"place",place:p,name:p.name,area:p.area,city:p.city,lat:p.lat,lng:p.lng,travel:tv,arrive,depart}); cur=depart; prev=p; });
+  if(day.stay){ const tv=transit(prev,day.stay); steps.push({kind:"stay",name:day.stay.name||"숙소",area:day.stay.area,city:day.stay.city,lat:day.stay.lat,lng:day.stay.lng,travel:tv,arrive:cur+tv,depart:cur+tv}); }
+  return steps;
+}
+function bizStatus(p,atMin,dateStr){ const h=p.hours||{}; const dow=new Date((dateStr||curDate())+"T00:00:00").getDay();
+  if((h.closed||[]).includes(dow)) return {k:"danger",t:"휴무일"};
+  const br0=hmToMin(h.breakStart),br1=hmToMin(h.breakEnd); if(br0!=null&&br1!=null&&atMin>=br0&&atMin<br1) return {k:"warn",t:"브레이크타임"};
+  const lo=hmToMin(h.lastOrder); if(lo!=null){ if(atMin>lo) return {k:"danger",t:"라스트오더 지남"}; if(lo-atMin<=30) return {k:"warn",t:"마감임박 LO "+h.lastOrder}; return {k:"ok",t:"영업 중 · LO "+h.lastOrder}; }
+  return {k:"ok",t:"영업 중"}; }
+
+/* ---------- 날씨(좌표별 캐시) ---------- */
+function wxKey(lat,lng){ return (+lat).toFixed(2)+","+(+lng).toFixed(2); }
+function dayCoords(di){ const day=TRIP.days[di];
+  if(di===0&&TRIP.arrival&&TRIP.arrival.lat) return {lat:TRIP.arrival.lat,lng:TRIP.arrival.lng};
+  const p=day&&day.places.find(x=>x.lat); if(p) return {lat:p.lat,lng:p.lng};
+  if(day&&day.stay&&day.stay.lat) return {lat:day.stay.lat,lng:day.stay.lng};
+  const c=cityObj(); return {lat:c.lat,lng:c.lng}; }
+function curWX(){ const c=dayCoords(curDay); return WXCACHE[wxKey(c.lat,c.lng)]||null; }
+async function ensureWeather(lat,lng){ const k=wxKey(lat,lng); if(WXCACHE[k]) return WXCACHE[k];
+  const ls=localStorage.getItem("dongseoni_wx_"+k); if(ls){ try{ const o=JSON.parse(ls); if(Date.now()-o.ts<3600000){ WXCACHE[k]=o.data; return o.data; } }catch(e){} }
+  try{ const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=precipitation_probability,temperature_2m,weather_code&timezone=Asia%2FSeoul&forecast_days=16`); const j=await r.json();
+    const data={time:j.hourly.time,pop:j.hourly.precipitation_probability,temp:j.hourly.temperature_2m,code:j.hourly.weather_code};
+    WXCACHE[k]=data; localStorage.setItem("dongseoni_wx_"+k,JSON.stringify({ts:Date.now(),data})); return data; }catch(e){ return null; } }
+function wxAt(dateStr,atMin){ const W=curWX(); if(!W) return null; const key=dateStr+"T"+minToHM(atMin).slice(0,2)+":00"; const i=W.time.indexOf(key); if(i<0) return null; return {pop:W.pop[i],temp:Math.round(W.temp[i]),code:W.code[i]}; }
+function wxIcon(code){ if(code==null) return ["🌡️","날씨"]; if(code===0) return ["☀️","맑음"]; if(code<=3) return ["⛅","구름"]; if(code<=48) return ["🌫️","안개"]; if(code<=67) return ["🌧️","비"]; if(code<=77) return ["🌨️","눈"]; if(code<=82) return ["🌧️","소나기"]; return ["🌧️","비"]; }
+function moodClass(code,atMin){ if(atMin>=19*60||atMin<6*60) return "night"; if(code==null) return "cloud"; if(code===0) return "clear"; if(code>=51) return "rain"; return "cloud"; }
+function currentStepIndex(steps,at){ if(steps.length===0) return 0; for(let i=0;i<steps.length;i++){ if(at<steps[i].depart) return i; } return steps.length-1; }
+
+/* ---------- 하늘 ---------- */
+function R(a,b){ return a+Math.random()*(b-a); }
+function buildSky(mood){ if(mood===lastSkyMood) return; lastSkyMood=mood;
+  const sky=document.getElementById("sky"),fx=document.getElementById("fx"); sky.className="sky "+mood; let h="";
+  if(mood==="rain"){ for(let i=0;i<30;i++) h+=`<div class="drop" style="left:${R(0,100).toFixed(1)}%;height:${R(12,22)|0}px;animation-duration:${R(.5,1).toFixed(2)}s;animation-delay:${R(0,1.2).toFixed(2)}s;opacity:${R(.4,.9).toFixed(2)}"></div>`; }
+  else if(mood==="night"){ h+=`<div class="moon"></div>`; for(let i=0;i<54;i++) h+=`<div class="star" style="left:${R(0,100).toFixed(1)}%;top:${R(0,68).toFixed(1)}%;width:${R(1,3)|0}px;height:${R(1,3)|0}px;animation-duration:${R(1.4,3.6).toFixed(1)}s;animation-delay:${R(0,3).toFixed(1)}s"></div>`; }
+  else if(mood==="clear"){ h+=`<div class="sun"></div>`; for(let i=0;i<16;i++) h+=`<div class="star" style="left:${R(0,100).toFixed(1)}%;top:${R(0,55).toFixed(1)}%;width:2px;height:2px;animation-duration:${R(2,4).toFixed(1)}s;animation-delay:${R(0,3).toFixed(1)}s;opacity:.5"></div>`; }
+  else { for(let i=0;i<5;i++) h+=`<div class="cloud" style="left:${R(-5,75).toFixed(0)}%;top:${R(2,42).toFixed(0)}%;width:${R(120,230)|0}px;height:${R(50,90)|0}px;animation-duration:${R(7,13).toFixed(1)}s;animation-delay:${R(0,4).toFixed(1)}s"></div>`; }
+  fx.innerHTML=h; }
+
+/* ---------- 마스코트 ---------- */
+function mascot(mood,walking,emotion,mini){
+  emotion=emotion||"happy"; const sleepy=mood==="night"&&emotion==="happy";
+  const auraC={happy:"rgba(90,147,255,.5)",drool:"rgba(255,180,67,.55)",heart:"rgba(255,122,168,.6)",sleepy:"rgba(167,139,250,.5)"};
+  const ac=auraC[sleepy?"sleepy":emotion]||auraC.happy; let eyes;
+  if(emotion==="heart") eyes=`<g class="eyes heart"><path transform="translate(38,35)" d="M0 0 C0 -2.3 -3.3 -4 -5 -1.8 C-6.7 .4 -4.4 3.4 0 6.6 C4.4 3.4 6.7 .4 5 -1.8 C3.3 -4 0 -2.3 0 0 Z" fill="#ff5e8a"/><path transform="translate(62,35)" d="M0 0 C0 -2.3 -3.3 -4 -5 -1.8 C-6.7 .4 -4.4 3.4 0 6.6 C4.4 3.4 6.7 .4 5 -1.8 C3.3 -4 0 -2.3 0 0 Z" fill="#ff5e8a"/></g>`;
+  else if(sleepy) eyes=`<g class="eyes"><path d="M33 37 Q38 33 43 37" stroke="#1b2a44" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M57 37 Q62 33 67 37" stroke="#1b2a44" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>`;
+  else eyes=`<g class="eyes"><ellipse cx="38" cy="37" rx="3" ry="3.8" fill="#1b2a44"/><ellipse cx="62" cy="37" rx="3" ry="3.8" fill="#1b2a44"/><circle cx="36.8" cy="35.4" r="1" fill="#fff"/><circle cx="60.8" cy="35.4" r="1" fill="#fff"/></g>`;
+  let mouth;
+  if(emotion==="drool") mouth=`<ellipse cx="50" cy="50" rx="6.5" ry="5" fill="#7a1f2b"/><path d="M44.5 49 q5.5 5 11 0" fill="#ff8fa3"/><path class="drool" d="M56 51 q1.5 4.5 0 8" stroke="#a7d8ff" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  else if(emotion==="heart") mouth=`<path d="M42 47 Q50 57 58 47" stroke="#1b2a44" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+  else mouth=`<path d="M43 47 Q50 53 57 47" stroke="#1b2a44" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+  let acc="";
+  if(mood==="rain") acc=`<g class="umb"><path d="M24 22 Q50 -4 76 22 Z" fill="#ffd166"/><path d="M24 22 Q37 13 50 22 Z" fill="#ffb443"/><path d="M50 22 Q63 13 76 22 Z" fill="#ffb443"/><rect x="49" y="21" width="2.4" height="20" rx="1.2" fill="#e0a93a"/><path d="M51 41 q5 0 5 5" stroke="#e0a93a" stroke-width="2.4" fill="none" stroke-linecap="round"/></g>`;
+  else if(mood==="clear"&&emotion==="happy") acc=`<g class="spark" transform="translate(80,20)"><path d="M0 -7 L1.6 -1.6 L7 0 L1.6 1.6 L0 7 L-1.6 1.6 L-7 0 L-1.6 -1.6 Z" fill="#ffe08a"/></g><g class="spark b" transform="translate(20,30) scale(.7)"><path d="M0 -7 L1.6 -1.6 L7 0 L1.6 1.6 L0 7 L-1.6 1.6 L-7 0 L-1.6 -1.6 Z" fill="#fff0b8"/></g>`;
+  else if(mood==="night"&&emotion==="happy") acc=`<g class="zzz" transform="translate(74,14)"><text x="0" y="0" font-size="13" font-weight="700" fill="#cdd6ff">z</text><text x="9" y="-7" font-size="9" font-weight="700" fill="#cdd6ff">z</text></g>`;
+  else if(emotion==="heart") acc=`<g class="zzz" transform="translate(72,12)"><text x="0" y="0" font-size="14" fill="#ff7aa8">♥</text><text x="11" y="-8" font-size="10" fill="#ff9ac0">♥</text></g>`;
+  const cheek=(emotion==="drool")?`<ellipse cx="28" cy="46" rx="5.5" ry="3.6" fill="#ff8fa3" opacity=".6"/><ellipse cx="72" cy="46" rx="5.5" ry="3.6" fill="#ff8fa3" opacity=".6"/>`:(sleepy?"":`<ellipse cx="29" cy="46" rx="5" ry="3.4" fill="#ff8fa3" opacity=".5"/><ellipse cx="71" cy="46" rx="5" ry="3.4" fill="#ff8fa3" opacity=".5"/>`);
+  return `<div class="m-aura" style="--g:${ac}"><svg class="mascot ${walking?"walk":""}${mini?" mini":""}" viewBox="-6 -8 112 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs><linearGradient id="mb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cb6ff"/><stop offset="1" stop-color="#3f74e6"/></linearGradient></defs>${acc}
+    <g class="body"><ellipse cx="50" cy="112" rx="20" ry="5" fill="rgba(0,0,0,.22)"/>
+      <path d="M50 4 C26 4 10 22 10 45 C10 74 34 98 50 106 C66 98 90 74 90 45 C90 22 74 4 50 4 Z" fill="url(#mb)" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>${cheek}${eyes}${mouth}
+      <circle cx="50" cy="74" r="15" fill="#fff" opacity=".94"/><circle cx="50" cy="74" r="15" fill="none" stroke="#cdd9ee" stroke-width="1"/>
+      <g class="needle"><path d="M50 63 L54.5 74 L50 74 Z" fill="#ff6b6b"/><path d="M50 85 L45.5 74 L50 74 Z" fill="#5a93ff"/><path d="M50 63 L45.5 74 L50 74 Z" fill="#ff9a9a"/><path d="M50 85 L54.5 74 L50 74 Z" fill="#83adf5"/><circle cx="50" cy="74" r="2.6" fill="#1b2a44"/></g>
+    </g></svg></div>`;
+}
+function mascotSay(mood,walking,emotion){ if(celebrating||emotion==="heart") return "도착! 잘했어 🎉"; if(emotion==="drool") return "여기 맛집이다! 🤤"; if(walking) return "다음 장소로 가요! 🚶"; if(mood==="rain") return "우산 챙겼나요? ☔"; if(mood==="night") return "슬슬 마무리해요 🌙"; if(mood==="clear") return "날씨 좋아요, 가볼까요? ✨"; return "천천히 즐겨요 😊"; }
+
+/* ====================================================================  렌더  ==================================================================== */
+function render(){
+  const app=document.getElementById("app"); app.classList.add("entering");
+  const empty=!TRIP||(TRIP.days.every(d=>d.places.length===0&&!d.stay)&&!TRIP.arrival);
+  if(empty&&!onbDone){ app.innerHTML=renderEmpty(); buildSky(skyMoodNow()); return finishEnter(); }
+  if(curDay>=daysCount()) curDay=daysCount()-1;
+  const hadWX=curWX();
+  if(screen==="home") app.innerHTML=renderHome();
+  else if(screen==="timeline"){ app.innerHTML=renderTimeline(); buildSky(skyMoodNow()); }
+  else { app.innerHTML=renderEdit(); buildSky(skyMoodNow()); }
+  bindScreen(); finishEnter();
+  const dc=dayCoords(curDay);
+  ensureWeather(dc.lat,dc.lng).then(w=>{ if(w&&!hadWX){ if(screen==="home") applySim(); else if(screen==="timeline") render(); } });
+}
+function finishEnter(){ requestAnimationFrame(()=>setTimeout(()=>document.getElementById("app").classList.remove("entering"),650)); }
+function skyMoodNow(){ const at=nowMinutes(); const w=wxAt(curDate(),at); return moodClass(w?w.code:null,at); }
+function fmtDate(s){ const d=new Date(s+"T00:00:00"),w=["일","월","화","수","목","금","토"][d.getDay()]; return `${d.getMonth()+1}월 ${d.getDate()}일 (${w})`; }
+function mdLabel(s){ const d=new Date(s+"T00:00:00"); return `${d.getMonth()+1}/${d.getDate()} ${["일","월","화","수","목","금","토"][d.getDay()]}`; }
+function destBar(){ const m=(TRIP.mode)||"transit";
+  return `<div class="destbar"><button class="destbtn" onclick="openDestPicker()">📍 ${escapeHtml(dest())} ▾</button>
+    <div class="modesel">${Object.keys(MODES).map(k=>`<button class="${k===m?'on':''}" title="${MODES[k].label}" onclick="setMode('${k}')">${MODES[k].ic}</button>`).join("")}</div></div>`; }
+function setMode(k){ TRIP.mode=k; save(); toast(MODES[k].ic+" "+MODES[k].label); lastMascot=""; render(); }
+function daySwitcher(){ return `<div class="days">${TRIP.days.map((d,i)=>`<button class="day-chip ${i===curDay?'on':''}" onclick="setDay(${i})">Day ${i+1}<small>${mdLabel(dayDateStr(i))}</small></button>`).join("")}</div>`; }
+function setDay(i){ curDay=Math.max(0,Math.min(i,daysCount()-1)); simMinutes=null; lastSkyMood=null; lastMascot=""; render(); }
+
+function renderEmpty(){ const O=ONB[onbStep];
+  return `<div class="onb"><div id="onbMascot" onclick="onbAdvance()">${mascot(O.mood,false,O.emo)}</div>
+    <div class="bubble anim1" id="onbBubble">${O.say}</div>
+    <div class="onb-dots">${ONB.map((_,i)=>`<i class="${i===onbStep?'on':''}"></i>`).join("")}</div>
+    <button class="btn primary" onclick="onbAdvance()" style="max-width:280px">${onbStep<ONB.length-1?"다음 →":"동선이랑 시작하기 →"}</button>
+    <p class="muted" style="margin-top:14px">전국 어디든 · 무료 · 자동 저장</p></div>`; }
+
+/* ----- 홈 ----- */
+function nowCardData(cur,next,at){
+  const staying=cur&&at>=cur.arrive&&at<cur.depart;
+  const verb=!cur?["",""]:(staying?["🪑","지금 머무는 중"]:(at<cur.arrive?["🚶","이동 중 · 곧 도착"]:["✅","다음으로 이동"]));
+  let badges="",verify="",sub=cur?cur.area:"";
+  if(cur&&cur.kind==="place"){ const p=cur.place; sub=`${cur.area} · ${TYPE_META[p.type].label}${p.meal?(" · "+(p.meal==="lunch"?"점심":"저녁")):""}`;
+    if(p.type==="eat"){ const st=bizStatus(p,Math.max(at,cur.arrive),curDate()); badges+=`<span class="bdg ${st.k}">${st.t}</span>`;
+      if(p.hours&&p.hours.reserve) badges+=`<span class="bdg warn">예약 필수</span>`; if(p.hours&&p.hours.cash) badges+=`<span class="bdg mut">현금만</span>`;
+      const lv=p.hours&&p.hours.verified; verify=`<div class="verify">ⓘ ${lv?"내가 입력한 정보 · "+lv+" 확인":"운영정보 미입력"} · <a onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(p.name)}')">카카오맵 확인</a></div>`;
+    } else badges += p.indoor?`<span class="bdg ok">실내</span>`:`<span class="bdg mut">야외</span>`;
+  } else if(cur&&cur.kind==="air") sub="도착";
+  const remain=!cur?0:(staying?cur.depart-at:cur.arrive-at);
+  const nextHTML=next?`→ ${escapeHtml(next.name)} ${minToHM(next.arrive).slice(0,5)}${next.travel?" · 이동 "+next.travel+"분":""}`:"";
+  return {verb,name:cur?cur.name:"일정 없음",sub,badges,verify,remLab:staying?"다음 출발까지":"도착까지",remN:remain>0?remain+"분":"지금",nextHTML,walking:!staying&&!!cur};
+}
+function bannerHTML(steps,idx,at,cur){ let b="";
+  const outNext=steps.slice(idx).find(s=>s.kind==="place"&&!s.place.indoor);
+  if(outNext){ const ow=wxAt(curDate(),outNext.arrive); if(ow&&ow.pop>=60) b+=`<div class="banner rain"><span class="ic">🌧️</span><span class="msg">${minToHM(outNext.arrive).slice(0,5)} <b>${escapeHtml(outNext.name)}</b> · 비 확률 ${ow.pop}% — 실내로 바꿀까요?</span><button class="act" onclick="openPlanB('${escapeHtml(outNext.area)}')">바꾸기</button></div>`; }
+  if(cur&&cur.depart>=22*60) b+=`<div class="banner warn"><span class="ic">🚇</span><span class="msg">늦은 시간 이동이에요. 막차·배차를 직접 확인하세요.</span></div>`;
+  return b; }
+function renderHome(){
+  const steps=buildSteps(), at=nowMinutes(), idx=currentStepIndex(steps,at);
+  const cur=steps[idx]||steps[0], next=steps[idx+1]; CURSTEP=cur;
+  const staying=cur&&at>=cur.arrive&&at<cur.depart;
+  const w=wxAt(curDate(),at), [wi,wl]=wxIcon(w?w.code:null), mood=moodClass(w?w.code:null,at), emo=emotionFor(cur,staying);
+  buildSky(mood); lastMascot=mood+(!staying?"go":"stay")+emo; lastRealCelebIdx=idx;
+  const d=nowCardData(cur,next,at);
+  return `${destBar()}${daySwitcher()}
+  <div class="mood" id="moodHdr">
+    <div class="statusbar"><span class="pill" id="sbPill">${steps.length?("스텝 "+Math.min(idx+1,steps.length)+" / "+steps.length):"Day "+(curDay+1)}</span>
+      <span class="wx" id="sbWx">${wi} <b>${escapeHtml(dest())} ${w?w.temp+"°":"--"}</b> · 💧${w?w.pop:"--"}% · ${wl}</span></div>
+    <div class="hero"><div id="mascotWrap" onclick="celebrate()" style="cursor:pointer;text-align:center">${mascot(mood,d.walking,emo)}</div>
+      <div class="say" id="mascotSay">${mascotSay(mood,d.walking,emo)}</div>
+      <div class="clock"><div class="t" id="clkT">${minToHM(at).slice(0,5)}</div><div class="d">Day ${curDay+1} · ${fmtDate(curDate())} ${isSelToday()&&simMinutes==null?"· 오늘":""}</div></div></div>
+  </div>
+  <div id="bannerWrap">${bannerHTML(steps,idx,at,cur)}</div>
+  <div class="wrap">
+    <div class="card"><span class="chip" id="nbVerb">${d.verb[0]} ${d.verb[1]}</span>
+      <div style="margin-top:12px"><div class="now-place" id="nbName">${escapeHtml(d.name)}</div>
+        <div class="now-sub" id="nbSub">${escapeHtml(d.sub)}</div><div class="badges" id="nbBadges">${d.badges}</div><div id="nbVerify">${d.verify}</div></div>
+      <div class="count"><span class="lab" id="nbRemLab">${d.remLab}</span><span class="n" id="nbRemN">${d.remN}</span></div>
+      <div id="nbNext">${d.nextHTML?`<div class="nextrow"><span class="l">${d.nextHTML}</span><span class="pill">추정</span></div>`:""}</div></div>
+    <button class="arrive-btn" onclick="celebrate()">📍 여기 도착했어요 🎉</button>
+    <div class="cta-row"><button class="cta" onclick="openRouteCur()">🧭 지금 출발 · 카카오맵</button>
+      <button class="cta ghost" title="지금 근처 실내" onclick="openPlanBCur()">☂️</button><button class="cta sos" title="긴급" onclick="openSOS()">🆘</button></div>
+    ${renderSim(at)}
+    <p class="muted" style="margin-top:14px;text-align:center">길찾기는 카카오/네이버맵이 정확합니다 · 동선이는 ‘언제 어디로’만 떠먹여 드려요</p></div>`;
+}
+function renderSim(at){ return `<div class="sim"><div class="top"><span>⏱ 시간 미리보기</span><span class="live" id="simLive">${minToHM(at).slice(0,5)}${simMinutes==null?" (실시간)":""}</span></div>
+  <input type="range" min="360" max="1439" step="5" value="${at}" id="simRange" oninput="onSim(this.value)">
+  <div style="display:flex;justify-content:space-between;margin-top:4px"><span class="muted">6시</span><button onclick="onSim(null)" style="font-size:12px;color:var(--accent)">실시간으로</button><span class="muted">자정</span></div></div>`; }
+function onSim(v){ simMinutes=(v===null||v===undefined)?null:+v; if(screen==="home") applySim(); }
+function applySim(){
+  const steps=buildSteps(), at=nowMinutes(), idx=currentStepIndex(steps,at);
+  const cur=steps[idx]||steps[0], next=steps[idx+1]; CURSTEP=cur;
+  const staying=cur&&at>=cur.arrive&&at<cur.depart;
+  const w=wxAt(curDate(),at), [wi,wl]=wxIcon(w?w.code:null), mood=moodClass(w?w.code:null,at);
+  if(simMinutes==null && idx!==lastRealCelebIdx){ lastRealCelebIdx=idx; if(staying) celebrate(); }
+  const emo=emotionFor(cur,staying); const d=nowCardData(cur,next,at); buildSky(mood);
+  set("simLive",minToHM(at).slice(0,5)+(simMinutes==null?" (실시간)":"")); set("clkT",minToHM(at).slice(0,5));
+  set("sbPill",steps.length?("스텝 "+Math.min(idx+1,steps.length)+" / "+steps.length):"Day "+(curDay+1));
+  setHTML("sbWx",`${wi} <b>${escapeHtml(dest())} ${w?w.temp+"°":"--"}</b> · 💧${w?w.pop:"--"}% · ${wl}`);
+  setHTML("bannerWrap",bannerHTML(steps,idx,at,cur));
+  set("nbVerb",`${d.verb[0]} ${d.verb[1]}`); set("nbName",d.name); set("nbSub",d.sub);
+  setHTML("nbBadges",d.badges); setHTML("nbVerify",d.verify); set("nbRemLab",d.remLab); set("nbRemN",d.remN);
+  setHTML("nbNext",d.nextHTML?`<div class="nextrow"><span class="l">${d.nextHTML}</span><span class="pill">추정</span></div>`:"");
+  const key=mood+(d.walking?"go":"stay")+emo; if(key!==lastMascot){ setHTML("mascotWrap",mascot(mood,d.walking,emo)); set("mascotSay",mascotSay(mood,d.walking,emo)); lastMascot=key; }
+}
+function set(id,t){ const e=document.getElementById(id); if(e) e.textContent=t; }
+function setHTML(id,h){ const e=document.getElementById(id); if(e) e.innerHTML=h; }
+
+/* ----- 타임라인 ----- */
+function renderTimeline(){
+  const steps=buildSteps(), at=nowMinutes(), idx=currentStepIndex(steps,at);
+  let html=destBar()+daySwitcher()+`<div class="topbar"><h2>Day ${curDay+1} 동선</h2><button class="icbtn" onclick="shareLink()" title="공유">🔗</button></div><div class="wrap">`;
+  if(steps.length===0){ html+=`<p class="muted">이 날 일정이 비었어요. 편집 탭에서 장소를 추가하세요.</p></div>`; return html; }
+  let lastR=null;
+  steps.forEach((s,i)=>{
+    if(s.area!==lastR){ html+=`<div class="region-h">📍 ${escapeHtml(s.area)}</div>`; lastR=s.area; }
+    if(s.travel){ const M=MODES[TRIP.mode||"transit"]; html+=`<div class="travel"><span class="ln"></span>${M.ic} ${M.label} ${s.travel}분 (추정)</div>`; }
+    const w=wxAt(curDate(),s.arrive), cls=i<idx?"done":(i===idx?"now":"");
+    let meta=`${minToHM(s.arrive).slice(0,5)}–${minToHM(s.depart).slice(0,5)}`; if(w) meta+=` · 💧${w.pop}%`;
+    let badge=""; if(s.kind==="place"&&s.place.type==="eat"){ const st=bizStatus(s.place,s.arrive,curDate()); badge=`<span class="bdg ${st.k}" style="font-size:11px">${st.t}</span>`; }
+    html+=`<div class="tl-item"><div class="tl-time">${minToHM(s.arrive).slice(0,5)}<small>${s.kind==="air"?"도착":s.kind==="stay"?"숙소":TYPE_META[s.place.type].label}</small></div>
+      <div class="tl-body ${cls}"><div class="tl-name">${cls==="done"?'<span style="color:var(--ok);font-weight:700">✓</span> ':""}${typeIc(s)} ${escapeHtml(s.name)} ${badge}</div>
+        <div class="tl-meta">${meta}</div><div class="tl-acts"><button class="go" onclick="openRoute(${stepArg(s)})">🧭 길찾기</button>${s.kind==="place"?`<button onclick="gotoEdit()">✏️ 수정</button>`:""}</div></div>
+      ${s.kind==="place"?`<div class="move"><button onclick="movePlace('${s.place.id}',-1)">▲</button><button onclick="movePlace('${s.place.id}',1)">▼</button></div>`:`<div class="move"></div>`}</div>`;
+  });
+  html+=`<button class="btn line" style="margin-top:10px" onclick="autoCluster()">🧩 권역끼리 자동 정리</button></div>`; return html;
+}
+function typeIc(s){ if(s.kind==="air")return "🛬"; if(s.kind==="stay")return "🏨"; return TYPE_META[s.place.type].ic; }
+function gotoEdit(){ setTab("edit"); }
+
+/* ----- 편집 ----- */
+function renderEdit(){
+  const day=TRIP.days[curDay];
+  return `${destBar()}${daySwitcher()}<div class="topbar"><h2>입력 · 편집</h2><div style="display:flex;gap:2px"><button class="icbtn" onclick="openSettings()" title="API 연동">🔌</button><button class="icbtn" onclick="shareLink()" title="공유 링크">🔗</button></div></div><div class="wrap">
+    <div class="assist"><div style="flex:none">${mascot(skyMoodNow(),false,assistEmo(),true)}</div><div class="ab">${assistantTip()}</div></div>
+    <div class="sec-title">📍 여행지</div>
+    <button class="btn line" onclick="openDestPicker()">🗺️ 지도에서 도시 고르기 — 현재: ${escapeHtml(dest())}</button>
+    <div class="sec-title">🗓️ 여행 설정</div>
+    <div class="row2"><div class="field"><label>여행 시작일</label><input class="input" type="date" value="${TRIP.startDate}" onchange="setField('startDate',this.value)"></div>
+      <div class="field"><label>기간</label><div class="stepper"><button onclick="setNights(-1)">−</button><span class="v">${TRIP.nights}박 ${TRIP.nights+1}일</span><button onclick="setNights(1)">＋</button></div></div></div>
+    <div class="row2"><div class="field"><label>🍽️ 점심 기본</label><input class="input" type="time" value="${TRIP.meal.lunch}" onchange="setMeal('lunch',this.value)"></div>
+      <div class="field"><label>🌆 저녁 기본</label><input class="input" type="time" value="${TRIP.meal.dinner}" onchange="setMeal('dinner',this.value)"></div></div>
+    ${curDay===0?`<div class="field"><label>🛬 도착 (첫날)</label>
+      <input class="input" placeholder="예: 김해공항 / 부산역 / 서울역" value="${TRIP.arrival?escapeHtml(TRIP.arrival.name):""}" onchange="setArrival('name',this.value)">
+      <div class="row2" style="margin-top:8px"><select class="input" onchange="setArrival('area',this.value)">${areaKeys().map(r=>`<option ${TRIP.arrival&&TRIP.arrival.area===r?"selected":""}>${r}</option>`).join("")}</select>
+        <input class="input" type="time" value="${TRIP.arrival?TRIP.arrival.time:"10:30"}" onchange="setArrival('time',this.value)"></div></div>`:""}
+    <div class="sec-title">🛏️ Day ${curDay+1} · ${mdLabel(curDate())}</div>
+    <div class="field"><label>이 날 시작 시각</label><input class="input" type="time" value="${day.start}" onchange="setDayStart(this.value)"></div>
+    ${day.stay?`<div class="added"><div class="i" style="background:rgba(167,139,250,.18)">🏨</div><div class="nm"><b>${escapeHtml(day.stay.name)}</b><span>오늘 밤 숙소 · ${escapeHtml(day.stay.area)}</span></div><button class="del" onclick="removeStay()">×</button></div>`:`<p class="muted" style="margin:0 0 10px">오늘 밤 숙소: 아래 '직접 추가'에서 종류를 🏨숙소로 선택해 넣으세요.</p>`}
+    <div class="sec-title">✨ 추천 받기</div>
+    <div class="recbtn"><button onclick="openRec('eat')">🍜 맛집 추천</button><button onclick="openRec('play')">🎡 놀거리·볼거리</button></div>
+    <div class="recbtn"><button onclick="openImport()" style="background:rgba(63,227,154,.12);border-color:rgba(63,227,154,.4);color:#aef3d0">📋 블로그 여행코스 붙여넣어 가져오기</button></div>
+    <div class="sec-title">⚡ ${escapeHtml(dest())} 빠른 추가</div>
+    <div class="quick">${seedOf().length?seedOf().map((s,i)=>`<button onclick="addSeed(${i})">＋ ${escapeHtml(s[0])}</button>`).join(""):`<span class="muted">이 도시 빠른추가는 ✨추천 받기(키 등록 시 실시간)로 채워보세요.</span>`}</div>
+    <div class="sec-title">➕ 직접 추가 (Day ${curDay+1})</div>
+    <div class="field"><label>이름</label><input class="input" id="nName" placeholder="예: OO국밥"></div>
+    <div class="row2"><div class="field"><label>종류</label><select class="input" id="nType"><option value="see">🗺️ 가고싶은곳</option><option value="eat">🍜 맛집</option><option value="stay">🏨 숙소(오늘 밤)</option></select></div>
+      <div class="field"><label>권역</label><select class="input" id="nRegion">${areaKeys().map(r=>`<option>${r}</option>`).join("")}</select></div></div>
+    <div id="eatFields" class="hide">
+      <div class="field"><label>끼니 <span class="muted">(점심 ${TRIP.meal.lunch} / 저녁 ${TRIP.meal.dinner} 기본)</span></label>
+        <div class="checks" id="ckMeal"><button class="ck" data-meal="lunch">🍽️ 점심</button><button class="ck" data-meal="dinner">🌆 저녁</button><button class="ck on" data-meal="">지정 안 함</button></div></div>
+      <div class="field"><label>맛집 운영정보 <span class="muted">(직접 확인해 입력)</span></label><div class="checks" id="ckClosed">${["일","월","화","수","목","금","토"].map((d,i)=>`<button class="ck" data-d="${i}">${d} 휴무</button>`).join("")}</div></div>
+      <div class="row2"><div class="field"><label>브레이크 시작</label><input class="input" type="time" id="nBrk0"></div><div class="field"><label>브레이크 끝</label><input class="input" type="time" id="nBrk1"></div></div>
+      <div class="row2"><div class="field"><label>라스트오더</label><input class="input" type="time" id="nLO"></div><div class="field"><label>목표시각(선택)</label><input class="input" type="time" id="nAnchor"></div></div>
+      <div class="checks" style="margin-bottom:12px"><button class="ck" id="ckReserve">예약 필수</button><button class="ck" id="ckCash">현금만</button><button class="ck" id="ckIndoor">실내</button></div></div>
+    <div id="seeIndoor" class="field hide"><label>실내/야외</label><div class="checks"><button class="ck on" id="seeOut" onclick="toggleSeeIndoor(false)">야외</button><button class="ck" id="seeIn" onclick="toggleSeeIndoor(true)">실내</button></div></div>
+    <button class="btn primary" onclick="addManual()">＋ 추가</button>
+    <div class="sec-title">📋 Day ${curDay+1} 추가된 곳 (${day.places.length})</div>
+    <div id="placeList">${renderPlaceList()}</div>
+    <button class="btn line" style="margin-top:16px" onclick="resetTrip()">전체 초기화</button>
+    <p class="muted" style="margin-top:12px;text-align:center">자동 저장됨 · 🔗로 동행자와 공유</p></div>`;
+}
+function renderPlaceList(){ const day=TRIP.days[curDay];
+  if(day.places.length===0) return `<p class="muted">아직 없어요. 추천·빠른추가·직접추가로 넣어보세요.</p>`;
+  return day.places.map(p=>`<div class="added"><div class="i" style="background:${TYPE_META[p.type].color}28">${TYPE_META[p.type].ic}</div>
+    <div class="nm"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.area||"")} · ${TYPE_META[p.type].label}${p.meal?(" · "+(p.meal==="lunch"?"점심":"저녁")):""}${p.indoor?" · 실내":""}</span></div>
+    <button class="del" onclick="removePlace('${p.id}')">×</button></div>`).join(""); }
+
+/* ====================================================================  이벤트  ==================================================================== */
+function bindScreen(){ if(screen==="edit"){ const t=document.getElementById("nType"); if(t){ t.onchange=()=>toggleTypeFields(t.value); toggleTypeFields(t.value); }
+  document.querySelectorAll("#ckClosed .ck").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
+  document.querySelectorAll("#ckMeal .ck").forEach(b=>b.onclick=()=>{ document.querySelectorAll("#ckMeal .ck").forEach(x=>x.classList.remove("on")); b.classList.add("on"); });
+  ["ckReserve","ckCash","ckIndoor"].forEach(id=>{const e=document.getElementById(id);if(e)e.onclick=()=>e.classList.toggle("on");}); } }
+function toggleTypeFields(v){ document.getElementById("eatFields").classList.toggle("hide",v!=="eat"); document.getElementById("seeIndoor").classList.toggle("hide",v!=="see"); }
+let seeIndoorVal=false;
+function toggleSeeIndoor(v){ seeIndoorVal=v; document.getElementById("seeOut").classList.toggle("on",!v); document.getElementById("seeIn").classList.toggle("on",v); }
+function setField(k,v){ TRIP[k]=v; save(); render(); }
+function setMeal(which,v){ TRIP.meal[which]=v; save(); render(); }
+function setDayStart(v){ TRIP.days[curDay].start=v; save(); render(); }
+function setArrival(field,v){ if(!TRIP.arrival) TRIP.arrival={name:"",area:areaKeys()[0],time:"10:30",city:dest()}; TRIP.arrival[field]=v;
+  const c=areaCoords(TRIP.arrival.area); TRIP.arrival.lat=c.lat; TRIP.arrival.lng=c.lng; TRIP.arrival.city=dest();
+  if(field==="name"&&!v.trim()) TRIP.arrival=null; save(); render(); }
+function setNights(delta){ let n=Math.max(0,Math.min(20,TRIP.nights+delta)); const want=n+1;
+  while(TRIP.days.length<want) TRIP.days.push({start:"09:00",stay:null,places:[]}); if(TRIP.days.length>want) TRIP.days=TRIP.days.slice(0,want);
+  TRIP.nights=n; if(curDay>=want) curDay=want-1; save(); render(); }
+function removeStay(){ TRIP.days[curDay].stay=null; save(); render(); }
+function mkPlace(name,type,area,indoor,extra){ const c=(extra&&extra.lat)?{lat:extra.lat,lng:extra.lng}:areaCoords(area); return Object.assign({id:uid(),name,type,area,city:dest(),lat:c.lat,lng:c.lng,indoor:!!indoor,meal:(extra&&extra.meal)||null,hours:(extra&&extra.hours)||{},dur:(extra&&extra.dur)||TYPE_META[type].dur},extra&&extra.anchor?{anchor:extra.anchor}:{}); }
+function addSeed(i){ const s=seedOf()[i]; if(!s) return; TRIP.days[curDay].places.push(mkPlace(s[0],s[1],s[2],s[1]==="eat"?false:false)); save(); render(); toast(s[0]+" 추가됨"); }
+function addManual(){ const name=document.getElementById("nName").value.trim(); if(!name){ toast("이름을 입력하세요"); return; }
+  const type=document.getElementById("nType").value, area=document.getElementById("nRegion").value;
+  if(type==="stay"){ const c=areaCoords(area); TRIP.days[curDay].stay={name,area,city:dest(),lat:c.lat,lng:c.lng}; }
+  else if(type==="eat"){ const closed=[...document.querySelectorAll("#ckClosed .ck.on")].map(b=>+b.dataset.d); const meal=(document.querySelector("#ckMeal .ck.on")||{dataset:{}}).dataset.meal||"";
+    TRIP.days[curDay].places.push(mkPlace(name,"eat",area,document.getElementById("ckIndoor").classList.contains("on"),{meal:meal||null,anchor:document.getElementById("nAnchor").value||null,dur:70,
+      hours:{closed,breakStart:document.getElementById("nBrk0").value,breakEnd:document.getElementById("nBrk1").value,lastOrder:document.getElementById("nLO").value,reserve:document.getElementById("ckReserve").classList.contains("on"),cash:document.getElementById("ckCash").classList.contains("on"),verified:curDate()}})); }
+  else TRIP.days[curDay].places.push(mkPlace(name,"see",area,seeIndoorVal,{dur:75}));
+  save(); render(); toast(name+" 추가됨"); }
+function removePlace(id){ TRIP.days[curDay].places=TRIP.days[curDay].places.filter(p=>p.id!==id); save(); render(); }
+function movePlace(id,dir){ const arr=TRIP.days[curDay].places, i=arr.findIndex(p=>p.id===id), j=i+dir; if(i<0||j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); render(); }
+function autoCluster(){ const arr=TRIP.days[curDay].places, order=[],byR={}; arr.forEach(p=>{ if(!byR[p.area]){byR[p.area]=[];order.push(p.area);} byR[p.area].push(p); }); TRIP.days[curDay].places=order.flatMap(r=>byR[r]); save(); render(); toast("권역끼리 정리했어요"); }
+function resetTrip(){ if(confirm("모든 입력을 지울까요?")){ TRIP=blankTrip(); curDay=0; save(); screen="edit"; render(); } }
+
+/* ----- 여행지(지도) 선택 ----- */
+/* 지도 색·클릭·라벨은 SIDO2REGION(9개 도, 남/북 분리) 사용 */
+function buildKMapPaths(j){
+  let mnL=1e9,mxL=-1e9,mnT=1e9,mxT=-1e9; const polys=[];
+  j.features.forEach(f=>{ const macro=SIDO2REGION[f.properties.name]; if(!macro) return; const g=f.geometry; const ps=g.type==="Polygon"?[g.coordinates]:g.coordinates;
+    ps.forEach(poly=>{ const ring=poly[0]; ring.forEach(c=>{ if(c[0]<mnL)mnL=c[0]; if(c[0]>mxL)mxL=c[0]; if(c[1]<mnT)mnT=c[1]; if(c[1]>mxT)mxT=c[1]; }); polys.push({macro,ring}); }); });
+  const midLat=(mnT+mxT)/2, kx=Math.cos(midLat*Math.PI/180), eLon=(mxL-mnL)*kx, latSpan=(mxT-mnT);
+  const H=350,pad=8,iH=H-2*pad,W=Math.round(iH*(eLon/latSpan))+2*pad;
+  const proj=(lng,lat)=>[pad+((lng-mnL)*kx)/eLon*iH, pad+(mxT-lat)/latSpan*iH];
+  const entries=[],lab={};
+  polys.forEach(({macro,ring})=>{
+    const pts=ring.map(c=>proj(c[0],c[1])); const out=[pts[0]];
+    for(let i=1;i<pts.length;i++){ const a=out[out.length-1],b=pts[i]; if(Math.hypot(b[0]-a[0],b[1]-a[1])>=1.1) out.push(b); }
+    if(out.length<5) return;
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,mx=0,my=0; out.forEach(p=>{x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);mx+=p[0];my+=p[1];});
+    if((x1-x0)<3&&(y1-y0)<3) return;
+    const area=(x1-x0)*(y1-y0); if(!lab[macro]||area>lab[macro].a) lab[macro]={a:area,x:mx/out.length,y:my/out.length};
+    entries.push({macro,d:"M"+out.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join("L")+"Z"});
+  });
+  return {entries,labels:Object.keys(lab).map(m=>({macro:m,x:lab[m].x,y:lab[m].y})),W,H};
+}
+async function loadKoreaMap(){
+  try{ const c=localStorage.getItem("dongseoni_kmap_v2"); if(c){ return JSON.parse(c); } }catch(e){}
+  const r=await fetch("https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/kostat/2013/json/skorea_provinces_geo_simple.json");
+  const j=await r.json(); const km=buildKMapPaths(j);
+  try{ localStorage.setItem("dongseoni_kmap_v2",JSON.stringify(km)); }catch(e){} return km;
+}
+function kmapSVG(km){
+  const sel=cityRegion(dest());
+  return `<svg class="kmap" viewBox="0 0 ${km.W} ${km.H}" xmlns="http://www.w3.org/2000/svg">
+    ${km.entries.map(e=>`<path class="prov${e.macro===sel?' sel':''}" d="${e.d}" fill="${REGIONCOL[e.macro]||'#556'}" onclick="showRegionCities('${e.macro}')"></path>`).join("")}
+    ${km.labels.map(l=>`<text x="${l.x.toFixed(0)}" y="${(l.y+4).toFixed(0)}">${l.macro}</text>`).join("")}</svg>`;
+}
+function fallbackMapSVG(){
+  return `<div class="citychips" style="justify-content:center">${REGIONS9.map(r=>`<button onclick="showRegionCities('${r}')">${r}</button>`).join("")}</div>`;
+}
+function openDestPicker(){
+  const sc=["서울","부산","제주시","경주시","강릉시","여수시"].map(c=>`<button onclick="setDest('${c}')">${c}</button>`).join("");
+  openSheet(`<h3>📍 여행지 선택</h3><p class="muted" style="margin-bottom:6px">지도에서 지역을 누르면 그 도의 도시가 나와요.</p>
+    <div id="kmapBox">${KMAP?kmapSVG(KMAP):fallbackMapSVG()}</div>
+    <p class="muted" style="text-align:center;margin-top:2px">바로가기</p>
+    <div class="citychips" style="justify-content:center">${sc}</div>`);
+  if(!KMAP){ loadKoreaMap().then(km=>{ KMAP=km; const b=document.getElementById("kmapBox"); if(b) b.innerHTML=kmapSVG(km); }).catch(()=>{}); }
+}
+function showRegionCities(region){
+  const cities=REGION_CITIES[region]||[];
+  let body;
+  if(!cities.length){ loadCities().then(()=>{ if(document.querySelector("#sheetBg.open")) showRegionCities(region); }); body=`<p class="muted">도시 목록 불러오는 중…</p>`; }
+  else body=`<div class="citychips">${cities.map(c=>`<button class="${dest()===c?'cur':''}" onclick="setDest('${escapeHtml(c)}')">${escapeHtml(c)}</button>`).join("")}</div>`;
+  openSheet(`<h3><button onclick="openDestPicker()" style="color:var(--accent);font-size:14px;margin-right:8px">← 지도</button>${region}</h3>
+    <p class="muted" style="margin-bottom:8px">⭐ 인기 여행지가 위에 있어요${cities.length?(" · "+cities.length+"개 도시"):""}</p>${body}`);
+}
+function setDest(city){ const cd=cityData(city); if(!cd) return; TRIP.dest={city,region:cd.region}; save(); closeSheet(); lastSkyMood=null; ensureWeather(cd.lat,cd.lng).then(()=>render()); render(); toast("📍 "+city+"(으)로 변경"); }
+const PROVCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충청":"#c08a3a","전라":"#9a5fc0","경상":"#c0556f","제주":"#3f9ec0"};
+const PROVPATH={ "수도권":"M70,68 L150,60 L150,118 L78,126 Z","강원":"M152,46 L234,58 L226,130 L152,120 Z","충청":"M58,128 L150,122 L170,150 L150,188 L70,184 Z","전라":"M56,188 L148,192 L150,262 L120,294 L70,278 Z","경상":"M152,134 L226,132 L222,252 L170,290 L150,200 Z","제주":"M70,308 L120,308 L120,330 L70,330 Z" };
+
+/* 추천 시트 */
+function openRec(kind){ const regs = KAKAO_KEY ? areaKeys() : areaKeys();
+  const opts=regs.map(r=>`<button onclick="showRec('${escapeHtml(r)}','${kind}')">${escapeHtml(r)}</button>`).join("");
+  openSheet(`<h3>${kind==="eat"?"🍜 맛집 추천":"🎡 놀거리·볼거리 추천"} · ${escapeHtml(dest())}</h3>
+    <p class="muted" style="margin-bottom:10px">권역을 고르면 Day ${curDay+1}에 추가할 수 있어요. ${KAKAO_KEY?"🟢 Kakao 실시간":"⚪ 큐레이션"} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p>
+    <div class="quick" style="margin-bottom:6px">${opts}</div><div id="recList"></div>`); }
+function showRec(region,kind){ const t=kind==="eat"?"eat":"see";
+  if(KAKAO_KEY){ setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 실시간 검색 중…</div>`);
+    loadKakao().then(ok=>{ if(!ok){ curatedRec(region,kind,t); return; }
+      kakaoRec(region,kind).then(list=>{ if(!list||!list.length){ curatedRec(region,kind,t); return; }
+        setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">🟢 ${escapeHtml(region)} · Kakao 실시간 ${kind==="eat"?"맛집":"놀거리"}</div>`+
+          list.map(p=>`<div class="poi"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat)}${p.dist?(" · "+p.dist+"m"):""}</span></div>
+            <button class="go" onclick="openLink('${p.url}')">지도</button><button class="add" onclick="addRec('${escapeHtml(p.name).replace(/'/g,'')}','${t}','${escapeHtml(region)}',${p.y||0},${p.x||0})">＋추가</button></div>`).join("")); }); }); }
+  else curatedRec(region,kind,t); }
+function curatedRec(region,kind,t){ const seed=seedOf().filter(s=>s[2]===region && (kind==="eat"?s[1]==="eat":s[1]==="see"));
+  setHTML("recList", `<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 추천 ${kind==="eat"?"맛집":"놀거리"}${KAKAO_KEY?"":" (큐레이션)"}</div>`+
+    (seed.length?seed.map(s=>`<div class="poi"><div class="nm"><b>${escapeHtml(s[0])}</b><span>${escapeHtml(region)}</span></div>
+      <button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(s[0])}')">지도</button><button class="add" onclick="addRec('${escapeHtml(s[0])}','${t}','${escapeHtml(region)}')">＋추가</button></div>`).join(""):`<p class="muted">이 권역 큐레이션이 적어요. 🔌 Kakao 키를 등록하면 실시간으로 채워져요.</p>`)); }
+function addRec(name,type,area,lat,lng){ TRIP.days[curDay].places.push(mkPlace(name,type,area,false,(lat&&lng)?{lat:+lat,lng:+lng}:null)); save(); toast(name+" → Day "+(curDay+1)+" 추가"); }
+
+/* 표정/축하 */
+function emotionFor(cur,staying){ if(celebrating) return "heart"; if(staying&&cur&&cur.kind==="place"&&cur.place&&cur.place.type==="eat") return "drool"; if(staying&&cur&&cur.kind==="stay") return "heart"; return "happy"; }
+function refreshMascot(){ if(screen!=="home"||!document.getElementById("mascotWrap")) return; const at=nowMinutes(), steps=buildSteps(), idx=currentStepIndex(steps,at), cur=steps[idx]||steps[0];
+  const staying=cur&&at>=cur.arrive&&at<cur.depart, w=wxAt(curDate(),at), mood=moodClass(w?w.code:null,at), emo=emotionFor(cur,staying);
+  setHTML("mascotWrap",mascot(mood,!staying&&!!cur,emo)); set("mascotSay",mascotSay(mood,!staying&&!!cur,emo)); lastMascot=mood+(!staying?"go":"stay")+emo; }
+function celebrate(){ confetti(); flashCheck(); toast("동선이가 반겨요! 🎉"); celebrating=true; refreshMascot(); clearTimeout(celebTimer); celebTimer=setTimeout(()=>{ celebrating=false; refreshMascot(); },2600); }
+function confetti(){ const wrap=document.createElement("div"); wrap.className="confetti"; const cols=["#5a93ff","#3fe39a","#ffd166","#ff7a7a","#a78bfa","#ff9f43"];
+  for(let i=0;i<48;i++){ const p=document.createElement("i"); p.style.left=R(0,100).toFixed(1)+"%"; p.style.background=cols[i%cols.length]; p.style.width=(R(6,11)|0)+"px"; p.style.height=(R(8,15)|0)+"px"; if(i%3===0)p.style.borderRadius="50%"; p.style.animationDuration=R(1.6,2.8).toFixed(2)+"s"; p.style.animationDelay=R(0,.35).toFixed(2)+"s"; p.style.setProperty("--dx",(R(-70,70)|0)+"px"); wrap.appendChild(p); }
+  document.body.appendChild(wrap); setTimeout(()=>wrap.remove(),3100); }
+function flashCheck(){ const c=document.createElement("div"); c.className="checkpop"; c.innerHTML='<div class="ring">✓</div>'; document.body.appendChild(c); setTimeout(()=>c.remove(),1400); }
+const ONB=[{say:"안녕! 난 <b>동선이</b>야 🧭",mood:"clear",emo:"happy"},{say:"전국 어디로 떠나? 도시를 골라줘",mood:"cloud",emo:"happy"},{say:"가고 싶은 곳·맛집 넣으면<br>동선을 딱 짜줄게! ✨",mood:"clear",emo:"heart"}];
+function onbAdvance(){ if(onbStep<ONB.length-1){ onbStep++; render(); } else { onbDone=true; localStorage.setItem("dongseoni_onb","1"); onbStep=0; setTab("edit"); setTimeout(openDestPicker,200); } }
+function assistantTip(){ const day=TRIP.days[curDay];
+  if(TRIP.days.every(d=>d.places.length===0)) return escapeHtml(dest())+" 여행이네! Day "+(curDay+1)+"에 가고 싶은 곳부터 넣어볼까? ✨";
+  if(!TRIP.days.some(d=>d.places.some(p=>p.type==="eat"))) return "맛집도 넣으면 점심·저녁 시각에 맞춰 짜줄게 🍜";
+  if(curDay<daysCount()-1&&!day.stay) return "Day "+(curDay+1)+" 밤 숙소도 정해줘 🏨 (날마다 다를 수 있어!)";
+  if(!TRIP.arrival) return "첫날 도착 시각을 넣으면 동선이 더 정확해져 🛬";
+  return "좋아! 🗺️ 타임라인 탭에서 Day별 동선을 확인해봐"; }
+function assistEmo(){ if(TRIP.days.every(d=>d.places.length===0)) return "happy"; if(!TRIP.days.some(d=>d.places.some(p=>p.type==="eat"))) return "drool"; return "heart"; }
+
+/* API 연동 */
+function loadKakao(){ if(!KAKAO_KEY) return Promise.resolve(false); if(kakaoReady&&window.kakao&&kakao.maps) return Promise.resolve(true);
+  return new Promise(res=>{ const s=document.createElement("script"); s.src=`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_KEY)}&libraries=services&autoload=false`;
+    s.onload=()=>{ try{ kakao.maps.load(()=>{ kakaoReady=true; res(true); }); }catch(e){ res(false); } }; s.onerror=()=>res(false); document.head.appendChild(s); }); }
+function kakaoRec(region,kind){ return new Promise(res=>{ const c=areaCoords(region); if(!window.kakao){ res([]); return; }
+  const ps=new kakao.maps.services.Places(); const cats=kind==="eat"?["FD6"]:["AT4","CT1"]; let all=[],done=0;
+  cats.forEach(code=>{ ps.categorySearch(code,(data,status)=>{ if(status===kakao.maps.services.Status.OK) all=all.concat(data.map(d=>({name:d.place_name,cat:(d.category_name||"").split(">").pop().trim(),dist:d.distance,url:d.place_url,x:d.x,y:d.y})));
+    if(++done===cats.length){ all.sort((x,y)=>(+x.dist||9e9)-(+y.dist||9e9)); res(all.slice(0,12)); } },{location:new kakao.maps.LatLng(c.lat,c.lng),radius:2500,sort:kakao.maps.services.SortBy.DISTANCE}); }); }); }
+function openSettings(){ openSheet(`<h3>🔌 API 연동 (선택)</h3>
+  <p class="muted" style="margin-bottom:12px">무료 키를 등록하면 <b style="color:var(--tx2)">실시간 맛집·놀거리 검색</b>과 <b style="color:var(--tx2)">정확한 대중교통 시간</b>이 켜져요. 키는 이 기기에만 저장되고, 도메인 잠금이라 노출돼도 안전합니다.</p>
+  <div class="field"><label>Kakao JavaScript 키</label><input class="input" id="kKakao" placeholder="카카오 JS 키" value="${KAKAO_KEY?escapeHtml(KAKAO_KEY):""}"></div>
+  <p class="muted" style="margin:-6px 0 14px"><a onclick="openLink('https://developers.kakao.com')" style="color:var(--accent)">developers.kakao.com</a> → 앱 만들기 → JavaScript 키 → 플랫폼·Web에 내 주소 등록</p>
+  <div class="field"><label>ODsay 웹 키</label><input class="input" id="kOdsay" placeholder="ODsay 웹키" value="${ODSAY_KEY?escapeHtml(ODSAY_KEY):""}"></div>
+  <p class="muted" style="margin:-6px 0 16px"><a onclick="openLink('https://lab.odsay.com')" style="color:var(--accent)">lab.odsay.com</a> → API키 발급(웹) → 허용 도메인 등록</p>
+  <button class="btn primary" onclick="saveKeys()">저장하고 켜기</button>
+  <p class="muted" style="margin-top:12px">현재: 맛집검색 ${KAKAO_KEY?"🟢 연동됨":"⚪ 큐레이션"} · 대중교통 ${ODSAY_KEY?"🟢 연동됨":"⚪ 보정추정"}</p>`); }
+function saveKeys(){ KAKAO_KEY=document.getElementById("kKakao").value.trim(); ODSAY_KEY=document.getElementById("kOdsay").value.trim();
+  localStorage.setItem("dongseoni_kakao",KAKAO_KEY); localStorage.setItem("dongseoni_odsay",ODSAY_KEY);
+  for(const k in ODCACHE) delete ODCACHE[k]; for(const k in odPending) delete odPending[k]; kakaoReady=false; closeSheet(); toast("API 연동 저장됨 🔌"); if(KAKAO_KEY) loadKakao(); render(); }
+
+/* 딥링크/공유/시트 */
+function stepArg(s){ return `'${escapeHtml(s.name)}',${s.lat||0},${s.lng||0}`; }
+function openRouteCur(){ if(!CURSTEP) return; openRoute(CURSTEP.name,CURSTEP.lat||0,CURSTEP.lng||0); }
+function openPlanBCur(){ openPlanB(CURSTEP?CURSTEP.area:""); }
+function openRoute(name,lat,lng){ const url=(lat&&lng)?`https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`:`https://map.kakao.com/?q=${encodeURIComponent(name)}`;
+  openSheet(`<h3>🧭 ${escapeHtml(name)} 길찾기</h3><p class="muted" style="margin-bottom:14px">현재 위치에서 대중교통/도보로 안내합니다.</p>
+    <div class="poi"><div class="nm"><b>카카오맵으로 길찾기</b><span>대중교통·도보·자동차</span></div><button class="go" onclick="openLink('${url}')">열기</button></div>
+    <div class="poi"><div class="nm"><b>네이버지도에서 검색</b><span>영업시간·리뷰 확인</span></div><button class="go" onclick="openLink('https://map.naver.com/p/search/${encodeURIComponent(name)}')">열기</button></div>`); }
+function openPlanB(area){ const list=INDOOR[area]||[];
+  const body=list.length?list.map(n=>`<div class="poi"><div class="nm"><b>${escapeHtml(n)}</b><span>${escapeHtml(area)} · 실내</span></div><button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(n)}')">길찾기</button></div>`).join("")
+    :`<p class="muted">${escapeHtml(area)} 실내 후보가 등록 안 됐어요. <button class="add" style="margin-left:4px" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(area+" 실내")}')">카카오맵 검색</button></p>`;
+  openSheet(`<h3>☂️ 지금 근처 실내 (Plan B)</h3><p class="muted" style="margin-bottom:10px">비 오거나 일정이 어긋날 때 — ${escapeHtml(area)} 권역에서 비 안 맞는 곳.</p>${body}`); }
+function openSOS(){ openSheet(`<h3>🆘 긴급</h3>
+  <div class="poi"><div class="nm"><b>119</b><span>화재·구급</span></div><button class="go" onclick="openLink('tel:119')">전화</button></div>
+  <div class="poi"><div class="nm"><b>112</b><span>경찰</span></div><button class="go" onclick="openLink('tel:112')">전화</button></div>
+  <div class="poi"><div class="nm"><b>1330</b><span>관광통역안내(24h)</span></div><button class="go" onclick="openLink('tel:1330')">전화</button></div>
+  <div class="poi"><div class="nm"><b>내 위치 좌표</b><span id="geoTxt">불러오는 중…</span></div><button class="go" onclick="copyGeo()">복사</button></div>
+  <p class="muted" style="margin-top:10px">정확한 응급은 OS 기본 긴급통화가 가장 확실합니다.</p>`);
+  navigator.geolocation?.getCurrentPosition(p=>{const t=document.getElementById("geoTxt");if(t){t.textContent=p.coords.latitude.toFixed(5)+", "+p.coords.longitude.toFixed(5);window._geo=t.textContent;}},()=>{const t=document.getElementById("geoTxt");if(t)t.textContent="위치 권한 거부됨";}); }
+function copyGeo(){ if(window._geo){navigator.clipboard?.writeText(window._geo); toast("좌표 복사됨");} }
+function openSheet(html){ document.getElementById("sheet").innerHTML=html; document.getElementById("sheetBg").classList.add("open"); }
+function closeSheet(){ document.getElementById("sheetBg").classList.remove("open"); }
+function openLink(url){ window.open(url,"_blank","noopener"); closeSheet(); }
+function shareLink(){ save(); const url=location.href; if(navigator.share){ navigator.share({title:"동선이 동선",url}).catch(()=>{}); } else { navigator.clipboard?.writeText(url); toast("공유 링크 복사됨 · 카톡 ‘나에게’ 추천"); } }
+
+/* 탭/토스트 */
+function setTab(s,doRender=true){ screen=s; document.querySelectorAll("#tabbar button").forEach(b=>b.classList.toggle("on",b.dataset.screen===s)); if(doRender) render(); }
+document.querySelectorAll("#tabbar button").forEach(b=>b.onclick=()=>setTab(b.dataset.screen));
+let toastT; function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800); }
+
+/* 코스 가져오기 (블로그 → 추출 → 확인 → 계획화) */
+let IMPORTED=null;
+function openImport(){
+  openSheet(`<h3>📋 코스 가져오기</h3>
+    <p class="muted" style="margin-bottom:10px">블로그 여행 코스 글을 <b style="color:var(--tx2)">복사해 붙여넣고</b> 분석하면 장소를 뽑아 Day별로 넣어드려요. ${KAKAO_KEY?"🟢 Kakao로 실제 장소 확인·좌표":"⚪ 🔌키 등록 시 더 정확"}</p>
+    <div class="field"><label>블로그 주소 (네이버·티스토리 자동 추출)</label><input class="input" id="impUrl" placeholder="https://blog.naver.com/..."></div>
+    <div class="field"><label>또는 본문 붙여넣기 (가장 정확)</label><textarea class="input" id="impText" style="height:150px;padding:10px 12px;resize:vertical;line-height:1.55" placeholder="여기에 코스 글 본문을 붙여넣으세요"></textarea></div>
+    <button class="btn primary" onclick="runImport()">✨ 분석하기</button>
+    <div id="impResult" style="margin-top:14px"></div>`);
+}
+function naverPostView(url){
+  let id,log; const q=url.match(/blogId=([^&]+)/), ql=url.match(/logNo=(\d+)/);
+  if(q&&ql){ id=q[1]; log=ql[1]; }
+  else { const m=url.match(/blog\.naver\.com\/([^\/?#]+)\/(\d+)/); if(m){ id=m[1]; log=m[2]; } }
+  return (id&&log)?("https://m.blog.naver.com/PostView.naver?blogId="+id+"&logNo="+log):null;
+}
+async function fetchBlog(url){
+  const nv=naverPostView(url);
+  const targets=[];
+  if(nv) targets.push("https://r.jina.ai/"+nv);   // 네이버: 모바일 본문 + Jina 리더(iframe/JS 처리)
+  targets.push("https://r.jina.ai/"+url);          // 그 외(티스토리 등) Jina 직접
+  targets.push("https://api.allorigins.win/raw?url="+encodeURIComponent(url)); // 최후 폴백
+  for(const t of targets){ try{
+    const r=await Promise.race([fetch(t),new Promise((_,x)=>setTimeout(()=>x(new Error("timeout")),13000))]);
+    if(!r||!r.ok) continue;
+    let txt=await r.text();
+    txt=txt.replace(/^[\s\S]*?Markdown Content:/i," ")           // Jina 헤더 제거
+      .replace(/!\[[^\]]*\]\([^)]*\)/g," ").replace(/\[([^\]]*)\]\([^)]*\)/g,"$1") // 마크다운 이미지/링크
+      .replace(/<[^>]+>/g," ").replace(/&[a-z#0-9]+;/gi," ").replace(/[ \t]+/g," ");
+    if((txt.match(/[가-힣]/g)||[]).length>120) return txt;
+  }catch(e){} }
+  return null;
+}
+const SUF="해수욕장|해변|해안|시장|공원|마을|카페거리|박물관|미술관|폭포|전망대|타워|거리|섬|수목원|성당|왕릉|식당|맛집|국밥|갈비|냉면|밀면|횟집|회센터|빵집|베이커리|온천|계곡|사찰|테마파크|랜드|월드|아난티|만찬|케이블카|피자|치킨|버거|파스타|곰탕|장어|대게|쭈꾸미|카페|커피|호텔|펜션|리조트|해상공원";
+function guessType(nm){ return /(맛집|식당|국밥|갈비|냉면|밀면|칼국수|분식|포차|횟집|회센터|베이커리|빵집|빵|카페|커피|시장|먹거리|만찬|곰탕|삼겹|고기|쌀국수|파스타|피자|버거|치킨|곱창|장어|대게|킹크랩|쭈꾸미)/.test(nm)?"eat":"see"; }
+function impClean(s){ return s.replace(/[​‌‍﻿*_~`>#]/g,"").replace(/^[\s,·\-–]+|[\s,·\-–]+$/g,"").trim(); }
+function looksLikePlace(s){
+  if(s.length<2||s.length>22) return false;
+  if((s.match(/\s/g)||[]).length>3) return false;
+  if(!/[가-힣A-Za-z]/.test(s)) return false;
+  if(/(있|없|했|먹었|갔|왔|봤|놀|쉬|샀|들렀|좋았|예뻤|예쁘|맛있|싶|네요|어요|아요|니다|드림|같아|처럼|정도|진짜|완전|너무|대박|만족|파이팅|후기|일정|코스|먹방|꿀팁|총정리)/.test(s)) return false;
+  if(/^(그|저|이것|여기|거기|아침|점심|저녁|오전|오후|다음날|첫날|마지막|새해|일출|일몰|숙소|조식|여행|관광|먹거리)$/.test(s)) return false;
+  if(/^(찐|핫|꿀|존|갓|인생|로컬|동네|숨은|유명|대박|진|국민|노포|현지인)?(맛집|핫플|먹킷리스트|먹킷)$/.test(s)) return false;
+  return true;
+}
+function extractPrecise(line){
+  const out=[];
+  (line.match(/\*\*([^*\n]{2,22})\*\*/g)||[]).forEach(b=>out.push(b.replace(/\*/g,"")));
+  (line.match(/[\[【「『]([^\]】」』\n]{2,20})[\]】」』]/g)||[]).forEach(b=>out.push(b.replace(/[\[【「『\]】」』]/g,"")));
+  const re=new RegExp("([가-힣A-Za-z0-9·]{1,12}(?:"+SUF+"))","g"); let m; while((m=re.exec(line))) out.push(m[1]);
+  return [...new Set(out.map(impClean))].filter(looksLikePlace);
+}
+function extractBroad(line){
+  const out=extractPrecise(line);
+  const bm=line.match(/^(?:✔️|✔|✅|☑️|☑|•|◦|▪|▶|▷|◆|●|○|※|→|➡)\s*(.+)$/);
+  if(bm){ let s=impClean(bm[1].split(/[(:\[]|\s[-–]\s|\s{2,}/)[0]); if(looksLikePlace(s)) out.push(s); }
+  return [...new Set(out)];
+}
+function parseCourse(text){
+  text=text.replace(/[​‌‍﻿]/g,"").replace(/\s*(?:✔️|✔|✅|☑️|☑|•|◦|▪|▶|▷|◆|●|○|※|➡)\s*/g,"\n");
+  const ex = KAKAO_KEY?extractBroad:extractPrecise;
+  const dayRe=/(\d+)\s*일\s*차|day\s*(\d+)|(\d+)일째/i;
+  const lines=text.split(/[\n\r]+/).map(s=>s.replace(/[ \t]+/g," ").replace(/^[>\s_~*]+/,"").trim()).filter(Boolean);
+  const days=[]; let cur=null;
+  const ensure=(n)=>{ if(!days[n-1]) days[n-1]={label:"Day "+n,cands:[]}; cur=days[n-1]; };
+  ensure(1);
+  lines.forEach(l=>{ const m=l.match(dayRe); if(m){ const n=+(m[1]||m[2]||m[3]); if(n>=1&&n<=20){ ensure(n); return; } }
+    ex(l).forEach(nm=>{ if(cur.cands.length<25 && !cur.cands.some(c=>c.name===nm||c.name.includes(nm)||nm.includes(c.name))) cur.cands.push({name:nm,type:guessType(nm)}); }); });
+  return {days:days.filter(d=>d&&d.cands.length)};
+}
+async function validateCands(parsed){
+  if(!(await loadKakao())||!window.kakao) return; const ps=new kakao.maps.services.Places(); const c=cityObj();
+  const all=[]; parsed.days.forEach(d=>d.cands.forEach(x=>all.push(x)));
+  for(const x of all.slice(0,40)){ await new Promise(res=>{ try{ ps.keywordSearch(x.name,(data,st)=>{
+    if(st===kakao.maps.services.Status.OK&&data&&data[0]){ const d=data[0]; x.lat=+d.y; x.lng=+d.x; x.kakao=d.place_name; if(d.category_group_code==="FD6"||d.category_group_code==="CE7") x.type="eat"; x.ok=true; } res();
+  },{location:new kakao.maps.LatLng(c.lat,c.lng),radius:25000}); }catch(e){ res(); } }); }
+  parsed.days.forEach(d=>{ d.cands=d.cands.filter(x=>x.ok); });   // Kakao로 확인된 실제 장소만 남김
+  parsed.days=parsed.days.filter(d=>d.cands.length);
+}
+async function runImport(){
+  const url=(document.getElementById("impUrl").value||"").trim(); let text=(document.getElementById("impText").value||"").trim();
+  setHTML("impResult",`<p class="muted">분석 중… ⏳</p>`);
+  if(!text&&url){ text=await fetchBlog(url); if(!text){ setHTML("impResult",`<p class="muted">⚠️ 불러오기 실패(글이 비공개거나 일시적 오류). 글 본문을 복사해 붙여넣어 주세요.</p>`); return; } }
+  if(!text){ setHTML("impResult",`<p class="muted">본문이나 주소를 입력하세요.</p>`); return; }
+  const parsed=parseCourse(text);
+  if(!parsed.days.length){ setHTML("impResult",`<p class="muted">장소를 못 찾았어요. 본문을 더 넣거나 직접 추가해 주세요.</p>`); return; }
+  if(KAKAO_KEY){ setHTML("impResult",`<p class="muted">Kakao로 실제 장소 확인 중… ⏳</p>`); await validateCands(parsed);
+    if(!parsed.days.length){ setHTML("impResult",`<p class="muted">Kakao로 확인된 장소가 없어요. 본문을 더 넣거나 직접 추가해 주세요.</p>`); return; } }
+  IMPORTED=parsed; renderImportReview(parsed);
+}
+function renderImportReview(parsed){
+  let h=`<p class="muted" style="margin:2px 0 8px">찾은 장소예요. 뺄 건 체크 해제 · 🍜는 맛집 표시.${KAKAO_KEY?" 🟢는 Kakao 확인됨.":" <b style='color:var(--accent)'>🔌 Kakao 키를 넣으면 장소를 더 정확히 찾고 좌표까지 잡아요.</b>"}</p>`;
+  parsed.days.forEach((d,di)=>{ h+=`<div class="region-h">${d.label} · ${d.cands.length}곳</div>`;
+    d.cands.forEach((x,ci)=>{ h+=`<div class="poi"><input type="checkbox" checked id="imp_${di}_${ci}" style="width:20px;height:20px;flex:none;accent-color:var(--accent)">
+      <div class="nm"><b>${escapeHtml(x.kakao||x.name)}</b><span>${x.ok?"🟢 확인됨":"후보"}</span></div>
+      <button class="ck ${x.type==='eat'?'on':''}" onclick="this.classList.toggle('on');IMPSET(${di},${ci},this.classList.contains('on'))">🍜</button></div>`; }); });
+  h+=`<button class="btn primary" style="margin-top:12px" onclick="buildImport()">＋ 이대로 일정에 추가</button>`;
+  setHTML("impResult",h);
+}
+function IMPSET(di,ci,isEat){ if(IMPORTED&&IMPORTED.days[di]&&IMPORTED.days[di].cands[ci]) IMPORTED.days[di].cands[ci].type=isEat?"eat":"see"; }
+function buildImport(){
+  const parsed=IMPORTED; if(!parsed) return; const need=parsed.days.length;
+  if(TRIP.nights+1<need){ TRIP.nights=need-1; while(TRIP.days.length<need) TRIP.days.push({start:"09:00",stay:null,places:[]}); }
+  let added=0;
+  parsed.days.forEach((d,di)=>{ if(!TRIP.days[di]) TRIP.days[di]={start:"09:00",stay:null,places:[]};
+    d.cands.forEach((x,ci)=>{ const cb=document.getElementById(`imp_${di}_${ci}`); if(cb&&!cb.checked) return;
+      const coords=(x.lat&&x.lng)?{lat:x.lat,lng:x.lng}:areaCoords(areaKeys()[0]);
+      TRIP.days[di].places.push(mkPlace(x.kakao||x.name,x.type,"코스",false,{lat:coords.lat,lng:coords.lng})); added++; }); });
+  save(); closeSheet(); curDay=0; setTab("timeline"); toast(added+"개 장소를 넣었어요 🎉"); confetti();
+}
+
+/* 부트 */
+(async function init(){
+  TRIP=load()||blankTrip();
+  KAKAO_KEY=localStorage.getItem("dongseoni_kakao")||""; ODSAY_KEY=localStorage.getItem("dongseoni_odsay")||""; if(KAKAO_KEY) loadKakao();
+  loadKoreaMap().then(km=>{KMAP=km;}).catch(()=>{}); loadCities();
+  const hasData=TRIP.days.some(d=>d.places.length>0||d.stay)||TRIP.arrival;
+  onbDone=localStorage.getItem("dongseoni_onb")==="1"||hasData;
+  const off=Math.round((new Date(todayStr())-new Date(TRIP.startDate))/86400000); curDay=(off>=0&&off<daysCount())?off:0;
+  screen=hasData?"home":"edit"; setTab(screen,false); render();
+  const c=cityObj(); await ensureWeather(c.lat,c.lng); lastSkyMood=null; lastMascot=""; render();
+})();
+setInterval(()=>{ if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); },30000);
+window.addEventListener("hashchange",()=>{ const t=load(); if(t){TRIP=t; lastSkyMood=null; render();} });
+</script>
+</body>
+</html>
