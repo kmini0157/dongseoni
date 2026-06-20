@@ -4,7 +4,14 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
 <title>동선이 · 대한민국</title>
-<meta name="theme-color" content="#0b1220" />
+<meta name="theme-color" content="#0a0e17" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="동선이" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<link rel="icon" href="icon.svg" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <style>
@@ -201,6 +208,10 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 /* ====================================================================
    동선이 v3 · 전국 멀티데이 여행 비서
    ==================================================================== */
+/* ★★★ 공유용 설정 — 아래 두 줄 따옴표 "" 안에 본인 키를 넣으면, 앱 쓰는 사람이 키를 직접 안 넣어도 자동으로 작동합니다 (도메인 잠금이라 노출돼도 안전) ★★★ */
+const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 JavaScript 키 (도메인 잠금) */
+const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
+
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
 const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
 const SIDO2REGION={"서울특별시":"수도권","인천광역시":"수도권","경기도":"수도권","강원도":"강원","충청북도":"충북","충청남도":"충남","대전광역시":"충남","세종특별자치시":"충남","전라북도":"전북","전라남도":"전남","광주광역시":"전남","경상북도":"경북","대구광역시":"경북","경상남도":"경남","부산광역시":"경남","울산광역시":"경남","제주특별자치도":"제주"};
@@ -912,7 +923,7 @@ function buildImport(){
 /* 부트 */
 (async function init(){
   TRIP=load()||blankTrip();
-  KAKAO_KEY=localStorage.getItem("dongseoni_kakao")||""; ODSAY_KEY=localStorage.getItem("dongseoni_odsay")||""; if(KAKAO_KEY) loadKakao();
+  KAKAO_KEY=localStorage.getItem("dongseoni_kakao")||DEFAULT_KAKAO; ODSAY_KEY=localStorage.getItem("dongseoni_odsay")||DEFAULT_ODSAY; if(KAKAO_KEY) loadKakao();
   loadKoreaMap().then(km=>{KMAP=km;}).catch(()=>{}); loadCities();
   const hasData=TRIP.days.some(d=>d.places.length>0||d.stay)||TRIP.arrival;
   onbDone=localStorage.getItem("dongseoni_onb")==="1"||hasData;

@@ -1,0 +1,15 @@
+{
+  "name": "동선이 · 전국 여행 비서",
+  "short_name": "동선이",
+  "description": "전국 여행 동선을 한 화면으로 — 날씨·맛집·이동까지",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
