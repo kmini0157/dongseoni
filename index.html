@@ -261,7 +261,7 @@ const MODES={transit:{ic:"🚇",label:"대중교통",spd:17,buf:12,minT:15,same:
 let TRIP=null, screen="home", simMinutes=null, curDay=0;
 let lastSkyMood=null, lastMascot="", CURSTEP=null;
 let celebrating=false, lastRealCelebIdx=-1, celebTimer=null, onbStep=0, onbDone=false;
-let KAKAO_KEY="", ODSAY_KEY="", kakaoReady=false;
+let KAKAO_KEY="", ODSAY_KEY="", kakaoReady=false, kakaoLoading=null;
 const ODCACHE={}, odPending={}, WXCACHE={};
 let KMAP=null; const ALLCITY={}; let REGION_CITIES={};
 
@@ -690,8 +690,6 @@ function showRegionCities(region){
     <p class="muted" style="margin-bottom:8px">⭐ 인기 여행지가 위에 있어요${cities.length?(" · "+cities.length+"개 도시"):""}</p>${body}`);
 }
 function setDest(city){ const cd=cityData(city); if(!cd) return; TRIP.dest={city,region:cd.region}; save(); closeSheet(); lastSkyMood=null; ensureWeather(cd.lat,cd.lng).then(()=>render()); render(); toast("📍 "+city+"(으)로 변경"); }
-const PROVCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충청":"#c08a3a","전라":"#9a5fc0","경상":"#c0556f","제주":"#3f9ec0"};
-const PROVPATH={ "수도권":"M70,68 L150,60 L150,118 L78,126 Z","강원":"M152,46 L234,58 L226,130 L152,120 Z","충청":"M58,128 L150,122 L170,150 L150,188 L70,184 Z","전라":"M56,188 L148,192 L150,262 L120,294 L70,278 Z","경상":"M152,134 L226,132 L222,252 L170,290 L150,200 Z","제주":"M70,308 L120,308 L120,330 L70,330 Z" };
 
 /* 추천 시트 */
 function openRec(kind){ const regs = KAKAO_KEY ? areaKeys() : areaKeys();
@@ -700,17 +698,26 @@ function openRec(kind){ const regs = KAKAO_KEY ? areaKeys() : areaKeys();
     <p class="muted" style="margin-bottom:10px">권역을 고르면 Day ${curDay+1}에 추가할 수 있어요. ${KAKAO_KEY?"🟢 Kakao 실시간":"⚪ 큐레이션"} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p>
     <div class="quick" style="margin-bottom:6px">${opts}</div><div id="recList"></div>`); }
 function showRec(region,kind){ const t=kind==="eat"?"eat":"see";
-  if(KAKAO_KEY){ setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 실시간 검색 중…</div>`);
-    loadKakao().then(ok=>{ if(!ok){ curatedRec(region,kind,t); return; }
-      kakaoRec(region,kind).then(list=>{ if(!list||!list.length){ curatedRec(region,kind,t); return; }
+  if(!KAKAO_KEY){ curatedRec(region,kind,t); return; }
+  setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 실시간 검색 중…</div>`);
+  loadKakao().then(ok=>{ if(!ok){ kakaoFailMsg(region,kind,t,"load"); return; }
+    kakaoRec(region,kind).then(r=>{
+      if(r.list&&r.list.length){
         setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">🟢 ${escapeHtml(region)} · Kakao 실시간 ${kind==="eat"?"맛집":"놀거리"}</div>`+
-          list.map(p=>`<div class="poi"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat)}${p.dist?(" · "+p.dist+"m"):""}</span></div>
-            <button class="go" onclick="openLink('${p.url}')">지도</button><button class="add" onclick="addRec('${escapeHtml(p.name).replace(/'/g,'')}','${t}','${escapeHtml(region)}',${p.y||0},${p.x||0})">＋추가</button></div>`).join("")); }); }); }
-  else curatedRec(region,kind,t); }
-function curatedRec(region,kind,t){ const seed=seedOf().filter(s=>s[2]===region && (kind==="eat"?s[1]==="eat":s[1]==="see"));
-  setHTML("recList", `<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 추천 ${kind==="eat"?"맛집":"놀거리"}${KAKAO_KEY?"":" (큐레이션)"}</div>`+
+          r.list.map(p=>`<div class="poi"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat)}${p.dist?(" · "+p.dist+"m"):""}</span></div>
+            <button class="go" onclick="openLink('${p.url}')">지도</button><button class="add" onclick="addRec('${escapeHtml(p.name).replace(/'/g,'')}','${t}','${escapeHtml(region)}',${p.y||0},${p.x||0})">＋추가</button></div>`).join(""));
+      } else kakaoFailMsg(region,kind,t,r.err||"empty");
+    }); }); }
+function kakaoFailMsg(region,kind,t,reason){
+  const tip = reason==="empty"
+    ? `이 권역엔 결과가 적어요. 다른 권역을 눌러보세요.`
+    : `⚠️ <b style="color:var(--warn)">Kakao 검색이 안 돼요.</b> developers.kakao.com에서 확인:<br>① 플랫폼 → Web 도메인 = <b style="color:var(--tx2)">${escapeHtml(location.origin)}</b> (경로 없이!)<br>② 제품 설정 → 카카오맵 <b style="color:var(--tx2)">활성화 ON</b><br>③ 🔌 키가 <b style="color:var(--tx2)">JavaScript 키</b> 맞는지`;
+  setHTML("recList",`<p class="muted" style="line-height:1.85;margin:4px 2px 12px">${tip}</p>`+curatedHtml(region,kind,t)); }
+function curatedHtml(region,kind,t){ const seed=seedOf().filter(s=>s[2]===region && (kind==="eat"?s[1]==="eat":s[1]==="see"));
+  return `<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 추천 ${kind==="eat"?"맛집":"놀거리"}${KAKAO_KEY?"":" (큐레이션)"}</div>`+
     (seed.length?seed.map(s=>`<div class="poi"><div class="nm"><b>${escapeHtml(s[0])}</b><span>${escapeHtml(region)}</span></div>
-      <button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(s[0])}')">지도</button><button class="add" onclick="addRec('${escapeHtml(s[0])}','${t}','${escapeHtml(region)}')">＋추가</button></div>`).join(""):`<p class="muted">이 권역 큐레이션이 적어요. 🔌 Kakao 키를 등록하면 실시간으로 채워져요.</p>`)); }
+      <button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(s[0])}')">지도</button><button class="add" onclick="addRec('${escapeHtml(s[0])}','${t}','${escapeHtml(region)}')">＋추가</button></div>`).join(""):`<p class="muted">이 권역 큐레이션이 적어요. 🔌 Kakao 키를 등록하면 실시간으로 채워져요.</p>`); }
+function curatedRec(region,kind,t){ setHTML("recList", curatedHtml(region,kind,t)); }
 function addRec(name,type,area,lat,lng){ TRIP.days[curDay].places.push(mkPlace(name,type,area,false,(lat&&lng)?{lat:+lat,lng:+lng}:null)); save(); toast(name+" → Day "+(curDay+1)+" 추가"); }
 
 /* 표정/축하 */
@@ -735,12 +742,20 @@ function assistEmo(){ if(TRIP.days.every(d=>d.places.length===0)) return "happy"
 
 /* API 연동 */
 function loadKakao(){ if(!KAKAO_KEY) return Promise.resolve(false); if(kakaoReady&&window.kakao&&kakao.maps) return Promise.resolve(true);
-  return new Promise(res=>{ const s=document.createElement("script"); s.src=`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_KEY)}&libraries=services&autoload=false`;
-    s.onload=()=>{ try{ kakao.maps.load(()=>{ kakaoReady=true; res(true); }); }catch(e){ res(false); } }; s.onerror=()=>res(false); document.head.appendChild(s); }); }
-function kakaoRec(region,kind){ return new Promise(res=>{ const c=areaCoords(region); if(!window.kakao){ res([]); return; }
-  const ps=new kakao.maps.services.Places(); const cats=kind==="eat"?["FD6"]:["AT4","CT1"]; let all=[],done=0;
-  cats.forEach(code=>{ ps.categorySearch(code,(data,status)=>{ if(status===kakao.maps.services.Status.OK) all=all.concat(data.map(d=>({name:d.place_name,cat:(d.category_name||"").split(">").pop().trim(),dist:d.distance,url:d.place_url,x:d.x,y:d.y})));
-    if(++done===cats.length){ all.sort((x,y)=>(+x.dist||9e9)-(+y.dist||9e9)); res(all.slice(0,12)); } },{location:new kakao.maps.LatLng(c.lat,c.lng),radius:2500,sort:kakao.maps.services.SortBy.DISTANCE}); }); }); }
+  if(kakaoLoading) return kakaoLoading;
+  kakaoLoading=new Promise(res=>{ let done=false; const fin=v=>{ if(!done){ done=true; res(v); } };
+    const to=setTimeout(()=>fin(false),9000);
+    if(window.kakao&&kakao.maps){ try{ kakao.maps.load(()=>{ kakaoReady=true; clearTimeout(to); fin(true); }); return; }catch(e){} }
+    const s=document.createElement("script"); s.src=`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_KEY)}&libraries=services&autoload=false`;
+    s.onload=()=>{ try{ kakao.maps.load(()=>{ kakaoReady=true; clearTimeout(to); fin(true); }); }catch(e){ clearTimeout(to); fin(false); } };
+    s.onerror=()=>{ clearTimeout(to); fin(false); }; document.head.appendChild(s); });
+  return kakaoLoading; }
+function kakaoRec(region,kind){ return new Promise(res=>{ const c=areaCoords(region); if(!window.kakao){ res({list:[],err:"load"}); return; }
+  const ps=new kakao.maps.services.Places(); const cats=kind==="eat"?["FD6"]:["AT4","CT1"]; let all=[],done=0,errored=0;
+  cats.forEach(code=>{ ps.categorySearch(code,(data,status)=>{
+    if(status===kakao.maps.services.Status.OK) all=all.concat(data.map(d=>({name:d.place_name,cat:(d.category_name||"").split(">").pop().trim(),dist:d.distance,url:d.place_url,x:d.x,y:d.y})));
+    else if(status===kakao.maps.services.Status.ERROR) errored++;
+    if(++done===cats.length){ all.sort((x,y)=>(+x.dist||9e9)-(+y.dist||9e9)); res({list:all.slice(0,12),err:(all.length===0&&errored>0)?"auth":null}); } },{location:new kakao.maps.LatLng(c.lat,c.lng),radius:2500,sort:kakao.maps.services.SortBy.DISTANCE}); }); }); }
 function openSettings(){ openSheet(`<h3>🔌 API 연동 (선택)</h3>
   <p class="muted" style="margin-bottom:12px">무료 키를 등록하면 <b style="color:var(--tx2)">실시간 맛집·놀거리 검색</b>과 <b style="color:var(--tx2)">정확한 대중교통 시간</b>이 켜져요. 키는 이 기기에만 저장되고, 도메인 잠금이라 노출돼도 안전합니다.</p>
   <div class="field"><label>Kakao JavaScript 키</label><input class="input" id="kKakao" placeholder="카카오 JS 키" value="${KAKAO_KEY?escapeHtml(KAKAO_KEY):""}"></div>
@@ -751,7 +766,7 @@ function openSettings(){ openSheet(`<h3>🔌 API 연동 (선택)</h3>
   <p class="muted" style="margin-top:12px">현재: 맛집검색 ${KAKAO_KEY?"🟢 연동됨":"⚪ 큐레이션"} · 대중교통 ${ODSAY_KEY?"🟢 연동됨":"⚪ 보정추정"}</p>`); }
 function saveKeys(){ KAKAO_KEY=document.getElementById("kKakao").value.trim(); ODSAY_KEY=document.getElementById("kOdsay").value.trim();
   localStorage.setItem("dongseoni_kakao",KAKAO_KEY); localStorage.setItem("dongseoni_odsay",ODSAY_KEY);
-  for(const k in ODCACHE) delete ODCACHE[k]; for(const k in odPending) delete odPending[k]; kakaoReady=false; closeSheet(); toast("API 연동 저장됨 🔌"); if(KAKAO_KEY) loadKakao(); render(); }
+  for(const k in ODCACHE) delete ODCACHE[k]; for(const k in odPending) delete odPending[k]; kakaoReady=false; kakaoLoading=null; closeSheet(); toast("API 연동 저장됨 🔌"); if(KAKAO_KEY) loadKakao(); render(); }
 
 /* 딥링크/공유/시트 */
 function stepArg(s){ return `'${escapeHtml(s.name)}',${s.lat||0},${s.lng||0}`; }
@@ -837,8 +852,8 @@ function extractPrecise(line){
 }
 function extractBroad(line){
   const out=extractPrecise(line);
-  const bm=line.match(/^(?:✔️|✔|✅|☑️|☑|•|◦|▪|▶|▷|◆|●|○|※|→|➡)\s*(.+)$/);
-  if(bm){ let s=impClean(bm[1].split(/[(:\[]|\s[-–]\s|\s{2,}/)[0]); if(looksLikePlace(s)) out.push(s); }
+  const s=impClean(line.split(/[(:\[]|\s[-–]\s|\s{2,}/)[0]);  // 줄 앞부분(설명/괄호 앞) = 불릿 항목명 후보
+  if(looksLikePlace(s)) out.push(s);
   return [...new Set(out)];
 }
 function parseCourse(text){
