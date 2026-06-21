@@ -132,6 +132,11 @@ input,select,textarea{font-family:inherit}
 .field{margin-bottom:12px}.field label{display:block;font-size:12px;color:var(--tx2);margin-bottom:6px}
 .input,select.input{width:100%;min-width:0;max-width:100%;height:44px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--tx);padding:0 13px;font-size:15px}
 input[type=date].input,input[type=time].input{display:block}
+.suggest{position:absolute;left:0;right:0;top:100%;z-index:30;background:var(--card-s);border:1px solid var(--line2);border-radius:10px;margin-top:4px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.suggest:empty{display:none}
+.suggest .si{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.suggest .si:last-child{border-bottom:0}.suggest .si:active{background:var(--accent-d)}
+.suggest .si b{font-size:14px}.suggest .si span{display:block;font-size:12px;color:var(--tx2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .input:focus{outline:none;border-color:var(--accent)}
 select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23a3b4cd' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
 .row2{display:flex;gap:10px}.row2>*{flex:1;min-width:0}
@@ -692,12 +697,13 @@ function renderEdit(){
     <div class="field"><label>이 날 시작 시각</label><input class="input" type="time" value="${day.start}" onchange="setDayStart(this.value)"></div>
     ${day.stay?`<div class="added"><div class="i" style="background:rgba(167,139,250,.18)">🏨</div><div class="nm"><b>${escapeHtml(day.stay.name)}</b><span>오늘 밤 숙소 · ${escapeHtml(day.stay.area)}</span></div><button class="del" onclick="removeStay()">×</button></div>`:`<p class="muted" style="margin:0 0 10px">오늘 밤 숙소: 아래 '직접 추가'에서 종류를 🏨숙소로 선택해 넣으세요.</p>`}
     <div class="sec-title">✨ 추천 받기</div>
+    <div class="recbtn"><button onclick="openMustVisit()" style="background:linear-gradient(135deg,#ffb84d,#ff8a3d);border-color:#ff8a3d;color:#1a1205;font-weight:800">⚡ ${escapeHtml(dest())} 꼭 가야 할 곳 한 번에 담기</button></div>
     <div class="recbtn"><button onclick="openRec('eat')">🍜 맛집 추천</button><button onclick="openRec('play')">🎡 놀거리·볼거리</button></div>
     <div class="recbtn"><button onclick="openImport()" style="background:rgba(63,227,154,.12);border-color:rgba(63,227,154,.4);color:#aef3d0">📋 블로그 여행코스 붙여넣어 가져오기</button></div>
     <div class="sec-title">⚡ ${escapeHtml(dest())} 빠른 추가</div>
     <div class="quick">${seedOf().length?seedOf().map((s,i)=>`<button onclick="addSeed(${i})">＋ ${escapeHtml(s[0])}</button>`).join(""):`<span class="muted">이 도시 빠른추가는 ✨추천 받기(키 등록 시 실시간)로 채워보세요.</span>`}</div>
     <div class="sec-title">➕ 직접 추가 (Day ${curDay+1})</div>
-    <div class="field"><label>이름</label><input class="input" id="nName" placeholder="예: OO국밥"></div>
+    <div class="field" style="position:relative"><label>이름 <span class="muted">${KAKAO_KEY?"· 입력하면 카카오 자동완성 ✨":""}</span></label><input class="input" id="nName" placeholder="예: 해운대해수욕장 — 입력하면 추천" autocomplete="off" oninput="manualSearch(this.value)"><div id="nSuggest" class="suggest"></div></div>
     <div class="row2"><div class="field"><label>종류</label><select class="input" id="nType"><option value="see">🗺️ 가고싶은곳</option><option value="eat">🍜 맛집</option><option value="stay">🏨 숙소(오늘 밤)</option></select></div>
       <div class="field"><label>권역</label><select class="input" id="nRegion">${areaKeys().map(r=>`<option>${r}</option>`).join("")}</select></div></div>
     <div id="eatFields" class="hide">
@@ -773,14 +779,29 @@ function setNights(delta){ let n=Math.max(0,Math.min(20,TRIP.nights+delta)); con
 function removeStay(){ const s=TRIP.days[curDay].stay; snapshot(); TRIP.days[curDay].stay=null; save(); render(); toast((s&&s.name?s.name:"숙소")+" 삭제됨", true); }
 function mkPlace(name,type,area,indoor,extra){ const c=(extra&&extra.lat)?{lat:extra.lat,lng:extra.lng}:areaCoords(area); return Object.assign({id:uid(),name,type,area,city:dest(),lat:c.lat,lng:c.lng,indoor:!!indoor,meal:(extra&&extra.meal)||null,hours:(extra&&extra.hours)||{},dur:(extra&&extra.dur)||TYPE_META[type].dur},extra&&extra.anchor?{anchor:extra.anchor}:{}); }
 function addSeed(i){ const s=seedOf()[i]; if(!s) return; TRIP.days[curDay].places.push(mkPlace(s[0],s[1],s[2],s[1]==="eat"?false:false)); save(); render(); toast(s[0]+" 추가됨"); }
+let MSUG=[], MSEL=null, msugT=null;
+function manualSearch(q){ q=(q||"").trim(); if(MSEL && MSEL.name!==q) MSEL=null; clearTimeout(msugT);
+  if(!KAKAO_KEY || q.length<2){ setHTML("nSuggest",""); MSUG=[]; return; }
+  msugT=setTimeout(()=>{ loadKakao().then(ok=>{ if(!ok) return; const c=cityObj();
+    new kakao.maps.services.Places().keywordSearch(q,(data,st)=>{
+      if(st!==kakao.maps.services.Status.OK||!data||!data.length){ setHTML("nSuggest",""); MSUG=[]; return; }
+      MSUG=data.slice(0,6).map(d=>({name:d.place_name,lat:+d.y,lng:+d.x,addr:d.road_address_name||d.address_name||"",cat:(d.category_name||"").split(">").pop().trim(),code:d.category_group_code||""}));
+      renderMsug();
+    },{location:new kakao.maps.LatLng(c.lat,c.lng),radius:20000,size:6,sort:kakao.maps.services.SortBy.ACCURACY}); }); },250); }
+function renderMsug(){ setHTML("nSuggest", MSUG.map((p,i)=>`<div class="si" onclick="pickManual(${i})"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat||"")}${p.addr?(" · "+escapeHtml(p.addr)):""}</span></div>`).join("")); }
+function pickManual(i){ const p=MSUG[i]; if(!p) return; MSEL=p; const nm=document.getElementById("nName"); if(nm) nm.value=p.name;
+  const ts=document.getElementById("nType"); if(ts){ if(p.code==="FD6"||p.code==="CE7") ts.value="eat"; else if(p.code==="AT4"||p.code==="CT1") ts.value="see"; }
+  setHTML("nSuggest",""); }
 function addManual(){ const name=document.getElementById("nName").value.trim(); if(!name){ toast("이름을 입력하세요"); return; }
-  const type=document.getElementById("nType").value, area=document.getElementById("nRegion").value;
-  if(type==="stay"){ const c=areaCoords(area); TRIP.days[curDay].stay={name,area,city:dest(),lat:c.lat,lng:c.lng}; }
+  const type=document.getElementById("nType").value;
+  const geo=(MSEL&&MSEL.name===name)?{lat:MSEL.lat,lng:MSEL.lng}:null;
+  const area=geo?nearestArea(geo.lat,geo.lng):document.getElementById("nRegion").value;
+  if(type==="stay"){ const c=geo||areaCoords(area); TRIP.days[curDay].stay={name,area,city:dest(),lat:c.lat,lng:c.lng}; }
   else if(type==="eat"){ const closed=[...document.querySelectorAll("#ckClosed .ck.on")].map(b=>+b.dataset.d); const meal=(document.querySelector("#ckMeal .ck.on")||{dataset:{}}).dataset.meal||"";
-    TRIP.days[curDay].places.push(mkPlace(name,"eat",area,document.getElementById("ckIndoor").classList.contains("on"),{meal:meal||null,anchor:document.getElementById("nAnchor").value||null,dur:70,
-      hours:{closed,breakStart:document.getElementById("nBrk0").value,breakEnd:document.getElementById("nBrk1").value,lastOrder:document.getElementById("nLO").value,reserve:document.getElementById("ckReserve").classList.contains("on"),cash:document.getElementById("ckCash").classList.contains("on"),verified:curDate()}})); }
-  else TRIP.days[curDay].places.push(mkPlace(name,"see",area,seeIndoorVal,{dur:75}));
-  save(); render(); toast(name+" 추가됨"); }
+    TRIP.days[curDay].places.push(mkPlace(name,"eat",area,document.getElementById("ckIndoor").classList.contains("on"),Object.assign({meal:meal||null,anchor:document.getElementById("nAnchor").value||null,dur:70,
+      hours:{closed,breakStart:document.getElementById("nBrk0").value,breakEnd:document.getElementById("nBrk1").value,lastOrder:document.getElementById("nLO").value,reserve:document.getElementById("ckReserve").classList.contains("on"),cash:document.getElementById("ckCash").classList.contains("on"),verified:curDate()}},geo||{}))); }
+  else TRIP.days[curDay].places.push(mkPlace(name,"see",area,seeIndoorVal,Object.assign({dur:75},geo||{})));
+  MSEL=null; setHTML("nSuggest",""); save(); render(); toast(name+" 추가됨"); }
 function removePlace(id){ const p=TRIP.days[curDay].places.find(x=>x.id===id); snapshot(); TRIP.days[curDay].places=TRIP.days[curDay].places.filter(x=>x.id!==id); save(); render(); toast((p?p.name:"장소")+" 삭제됨", true); }
 function movePlace(id,dir){ const arr=TRIP.days[curDay].places, i=arr.findIndex(p=>p.id===id), j=i+dir; if(i<0||j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); render(); }
 function autoCluster(){ const arr=TRIP.days[curDay].places, order=[],byR={}; arr.forEach(p=>{ if(!byR[p.area]){byR[p.area]=[];order.push(p.area);} byR[p.area].push(p); }); TRIP.days[curDay].places=order.flatMap(r=>byR[r]); save(); render(); toast("권역끼리 정리했어요"); }
@@ -841,6 +862,45 @@ function showRegionCities(region){
 function setDest(city){ const cd=cityData(city); if(!cd) return; TRIP.dest={city,region:cd.region}; save(); closeSheet(); lastSkyMood=null; ensureWeather(cd.lat,cd.lng); render(); toast("📍 "+city+"(으)로 변경"); }
 
 /* 추천 시트 */
+/* ⚡ 도시 필수 코스 — 카카오에서 유명 명소를 인기(리뷰수)·별점순으로 받아 한 번에 담기 */
+let MVLIST=null;
+function fetchMustVisit(city){
+  const c=cityObj(), ps=new kakao.maps.services.Places(), loc=new kakao.maps.LatLng(c.lat,c.lng), OK=kakao.maps.services.Status.OK;
+  return new Promise(res=>{ const cand={}; let done=0; const N=3;
+    const add=(data,st)=>{ if(st===OK) data.forEach((d,i)=>{ const code=d.category_group_code||""; if(code==="FD6") return; /* 먹는 곳은 맛집 추천으로 */
+        const id=idOf(d.place_url); if(!cand[id]) cand[id]={id,name:d.place_name,cat:(d.category_name||"").split(">").pop().trim(),url:d.place_url,x:d.x,y:d.y,bestRank:i,_why:[]}; else cand[id].bestRank=Math.min(cand[id].bestRank,i); });
+      if(++done===N){ const arr=Object.values(cand); arr.sort((a,b)=>a.bestRank-b.bestRank); res(arr.slice(0,14)); } };
+    ps.keywordSearch(city+" 가볼만한곳",add,{size:15,sort:kakao.maps.services.SortBy.ACCURACY});
+    ps.keywordSearch(city+" 관광명소",add,{size:15,sort:kakao.maps.services.SortBy.ACCURACY});
+    ps.categorySearch("AT4",add,{location:loc,radius:10000,sort:kakao.maps.services.SortBy.DISTANCE});
+  });
+}
+function renderMustList(list,loading){
+  setHTML("mvList", list.map((p,i)=>{ const star=p.rating!=null?`<b style="color:#ffd166">⭐${p.rating}</b><span style="opacity:.6"> (${p.reviews})</span> · `:"";
+    return `<div class="poi"><input type="checkbox" ${i<6?"checked":""} id="mv_${i}" style="width:20px;height:20px;flex:none;accent-color:var(--accent)"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${star}${escapeHtml(p.cat||"명소")}</span></div></div>`;
+  }).join("") + (loading?`<p class="muted" style="margin:6px 2px">⭐ 별점·인기 불러오는 중…</p>`:"") + `<button class="btn primary" style="margin-top:12px" onclick="addMustVisit()">＋ 체크한 곳 담기</button>`);
+}
+function addMustVisit(){ const list=MVLIST||[]; let n=0; snapshot();
+  list.forEach((p,i)=>{ const cb=document.getElementById("mv_"+i); if(cb&&!cb.checked) return;
+    const coords=(p.x&&p.y)?{lat:+p.y,lng:+p.x}:null; const area=coords?nearestArea(coords.lat,coords.lng):(p.area||areaKeys()[0]);
+    TRIP.days[curDay].places.push(mkPlace(p.name,"see",area,false,coords?{lat:coords.lat,lng:coords.lng}:null)); n++; });
+  save(); closeSheet(); render(); toast(n+"곳을 Day "+(curDay+1)+"에 담았어요 🎉"); if(n) confetti(); }
+function openMustVisit(){ const city=dest();
+  openSheet(`<h3>⚡ ${escapeHtml(city)} 필수 코스</h3><p class="muted" style="margin-bottom:8px">${KAKAO_KEY?"인기·별점순 유명 명소예요.":"큐레이션 명소예요."} 담을 곳만 체크하고 추가하세요.</p><div id="mvList"><p class="muted">불러오는 중… ⏳</p></div>`);
+  if(!KAKAO_KEY){ const seeds=seedOf().filter(s=>s[1]==="see").map(s=>({name:s[0],cat:"명소",area:s[2]})); MVLIST=seeds; if(!seeds.length){ setHTML("mvList",`<p class="muted">이 도시 큐레이션이 적어요. 🔌 Kakao 키가 있으면 자동으로 받아와요.</p>`); return; } renderMustList(seeds); return; }
+  const myReq=++recSeq;
+  loadKakao().then(ok=>{ if(myReq!==recSeq) return; if(!ok){ setHTML("mvList",`<p class="muted">⚠️ Kakao 검색이 안 돼요. 잠시 후 다시 시도하세요.</p>`); return; }
+    fetchMustVisit(city).then(list=>{ if(myReq!==recSeq) return;
+      if(!list.length){ setHTML("mvList",`<p class="muted">명소를 못 찾았어요.</p>`); return; }
+      MVLIST=list; renderMustList(list,true);
+      const top=list.slice(0,12).filter(p=>p.id);
+      Promise.all(top.map(p=>fetchStar(p.id).then(e=>{ if(e){ p.rating=e.r; p.reviews=e.n; } }).catch(()=>{}))).then(()=>{ if(myReq!==recSeq) return; saveStars();
+        list.forEach(p=>{ p._fame=(p.reviews>0)?((p.rating||3.5)*Math.log10(p.reviews+10)):-1; });
+        list.sort((a,b)=> (b._fame-a._fame) || ((b.reviews||0)-(a.reviews||0))); MVLIST=list; renderMustList(list);
+      });
+    });
+  });
+}
 function openRec(kind){ const regs=areaKeys();
   const head=`<h3>${kind==="eat"?"🍜 맛집 추천":"🎡 놀거리·볼거리 추천"} · ${escapeHtml(dest())}</h3>`;
   if(regs.length<=1){ const r=regs[0]||(dest()+" 시내");
