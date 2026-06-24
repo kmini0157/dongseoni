@@ -254,6 +254,8 @@ const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인
 /* ★★★ 앱을 꺼도 울리는 푸시 알람 설정 — server/ 폴더의 푸시 서버를 배포한 뒤 아래 두 줄을 채우세요. 비워두면 '앱 열림 알람'만 작동합니다 ★★★ */
 const PUSH_SERVER = "";   /* ← 배포한 푸시 서버 주소 (예: "https://dongseoni-push.onrender.com") */
 const VAPID_PUBLIC = "";  /* ← 푸시 서버의 VAPID 공개키 (npx web-push generate-vapid-keys) */
+/* ★★★ 공유 시 보상형 광고로 수익화 — AdSense 퍼블리셔 ID를 넣으면 실제 광고, 비우면 데모 광고가 뜹니다. 광고차단/오프라인이면 자동으로 공유 잠금이 풀립니다 ★★★ */
+const ADSENSE_CLIENT = "";  /* ← "ca-pub-XXXXXXXXXXXXXXXX" (H5 Games Ads 승인 필요). 비우면 데모 광고 */
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
 const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
@@ -849,19 +851,62 @@ function copyTripText(){ const text=tripText();
   if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>toast("일정표 복사됨 📋")).catch(()=>fallbackCopy(text)); } else fallbackCopy(text); }
 function fallbackCopy(text){ try{ const ta=document.createElement("textarea"); ta.value=text; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast("일정표 복사됨 📋"); }catch(e){ toast("복사 실패 — 미리보기를 길게 눌러 복사하세요"); } }
 
-/* ----- 📺 광고 보고 공유하기 (수익화) ----- */
-let _adPassUntil=0, _adTimer=null;
+/* ----- 📺 광고 보고 공유하기 (수익화) -----
+   ADSENSE_CLIENT 가 있으면 실제 AdSense 보상형(H5 Games Ads) 광고를, 없으면 데모 광고를 띄웁니다.
+   오프라인·광고차단·로드실패 시에는 공유를 막지 않고 잠금을 자동 해제합니다. */
+let _adPassUntil=0, _adTimer=null, _adsenseReq=null;
 function sharePassActive(){ return Date.now()<_adPassUntil; }
-function shareWithAd(){ if(sharePassActive()){ openShare(); return; } showRewardAd(()=>{ _adPassUntil=Date.now()+10*60*1000; openShare(); }); }
-function showRewardAd(onReward){ if(document.getElementById("adov")) return; const SEC=5; let left=SEC;
+function grantSharePass(){ _adPassUntil=Date.now()+10*60*1000; }
+function shareWithAd(){ if(sharePassActive()){ openShare(); return; } runRewardAd(()=>{ grantSharePass(); openShare(); }); }
+function runRewardAd(onReward){
+  if(!navigator.onLine){ toast("오프라인 — 광고 없이 공유할게요"); onReward(); return; }   // 오프라인 폴백
+  if(ADSENSE_CLIENT) adsenseReward(onReward); else showDemoAd(onReward);
+}
+function clearAdov(){ if(_adTimer){ clearInterval(_adTimer); _adTimer=null; } const e=document.getElementById("adov"); if(e) e.remove(); }
+
+/* --- 실제 AdSense 보상형 광고 --- */
+function loadAdSense(){ if(_adsenseReq) return _adsenseReq;
+  _adsenseReq=new Promise(res=>{ try{ window.adsbygoogle=window.adsbygoogle||[]; }catch(e){}
+    const s=document.createElement("script"); s.async=true; s.crossOrigin="anonymous";
+    s.src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client="+encodeURIComponent(ADSENSE_CLIENT);
+    s.setAttribute("data-ad-frequency-hint","30s");
+    let done=false; const fin=v=>{ if(!done){ done=true; res(v); } };
+    s.onload=()=>{ try{ window.adsbygoogle.push({preloadAdBreaks:"on"}); }catch(e){} fin(true); };
+    s.onerror=()=>fin(false); document.head.appendChild(s);
+    setTimeout(()=>fin(false),6500);   // 광고차단기 등으로 로드 실패하면 폴백
+  }); return _adsenseReq; }
+function adsenseReward(onReward){ loadAdSense().then(ok=>{
+  if(!ok||!window.adsbygoogle){ autoUnlock(onReward,"광고를 불러올 수 없어요"); return; }
+  let settled=false; const finish=g=>{ if(settled) return; settled=true; clearTimeout(to); if(g) onReward(); };
+  const fail=msg=>{ if(settled) return; settled=true; clearTimeout(to); autoUnlock(onReward,msg); };
+  const to=setTimeout(()=>fail("광고가 준비되지 않았어요"),7000);
+  try{ window.adsbygoogle.push({ type:"reward", name:"dongseoni-share-unlock",
+    beforeReward(showAdFn){ clearTimeout(to); showAdFn(); },
+    adViewed(){ finish(true); },
+    adDismissed(){ if(!settled){ settled=true; clearTimeout(to); toast("광고를 끝까지 봐야 공유돼요"); } },
+    adBreakDone(info){ if(settled) return; if(info&&info.breakStatus==="viewed") finish(true); else fail("광고를 불러올 수 없어요"); } }); }
+  catch(e){ fail("광고를 불러올 수 없어요"); } }); }
+
+/* --- 광고가 안 뜨면 짧은 안내 후 공유 잠금 자동 해제 --- */
+function autoUnlock(onReward,msg){ clearAdov(); const SEC=3; let left=SEC;
   const ov=document.createElement("div"); ov.className="adov"; ov.id="adov";
-  /* 실제 수익화: 아래 .adbody 영역을 AdSense/AdMob 보상형(rewarded) 광고 단위로 교체하세요. 시청 완료 콜백에서 close(true) 호출 */
+  ov.innerHTML=`<div class="adcard"><div class="adtop"><span class="adtag" style="background:#3fe39a">알림</span></div>
+    <div class="adbody"><div class="adill">📤</div><div class="adttl">${escapeHtml(msg)}</div><div class="adsub">공유를 그대로 진행할게요</div></div>
+    <div class="adfoot"><div class="adbar"><i id="adbarfill"></i></div><div class="adcount" id="adcount">${left}초…</div><button class="btn primary" style="margin-top:10px" id="adnow">지금 공유</button></div></div>`;
+  document.body.appendChild(ov);
+  const go=()=>{ clearAdov(); if(onReward) onReward(); };
+  document.getElementById("adnow").onclick=go; document.getElementById("adbarfill").style.width="0%";
+  _adTimer=setInterval(()=>{ left--; const f=document.getElementById("adbarfill"); if(f) f.style.width=Math.round((SEC-left)/SEC*100)+"%"; const c=document.getElementById("adcount"); if(c) c.textContent=Math.max(left,0)+"초…"; if(left<=0) go(); },1000); }
+
+/* --- 데모 광고(계정·네트워크 없이도 동작) --- */
+function showDemoAd(onReward){ if(document.getElementById("adov")) return; const SEC=5; let left=SEC;
+  const ov=document.createElement("div"); ov.className="adov"; ov.id="adov";
   ov.innerHTML=`<div class="adcard"><div class="adtop"><span class="adtag">광고 · AD</span><button class="adx" id="adx" disabled>✕</button></div>
     <div class="adbody"><div class="adill">🏝️</div><div class="adttl">여행할 땐 든든하게</div><div class="adsub">○○트래블 카드 · 해외결제 3% 적립<br><span style="opacity:.65">Sponsored</span></div></div>
     <div class="adfoot"><div class="adbar"><i id="adbarfill"></i></div><div class="adcount" id="adcount">${left}초 후 공유할 수 있어요</div></div></div>`;
   document.body.appendChild(ov);
   const xbtn=ov.querySelector("#adx");
-  const close=rewarded=>{ if(_adTimer){ clearInterval(_adTimer); _adTimer=null; } ov.remove(); if(rewarded&&onReward) onReward(); };
+  const close=rewarded=>{ clearAdov(); if(rewarded&&onReward) onReward(); };
   xbtn.onclick=()=>{ if(!xbtn.disabled) close(true); };
   _adTimer=setInterval(()=>{ left--; const f=document.getElementById("adbarfill"); if(f) f.style.width=Math.round((SEC-left)/SEC*100)+"%"; const c=document.getElementById("adcount");
     if(left<=0){ clearInterval(_adTimer); _adTimer=null; if(c) c.textContent="✅ 시청 완료! ✕를 눌러 공유하세요"; if(xbtn){ xbtn.disabled=false; xbtn.classList.add("ready"); } }
