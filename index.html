@@ -154,6 +154,7 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .added .i{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none}
 .added .nm{flex:1;min-width:0}.added .nm b{font-size:14px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.added .nm span{font-size:12px;color:var(--tx2)}
 .added .del{color:var(--tx3);font-size:18px;padding:4px}
+.costin{width:74px;height:34px;flex:none;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:9px;color:var(--tx);padding:0 8px;font-size:13px;text-align:right}.costin:focus{border-color:var(--accent);outline:none}
 .quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .quick button{font-size:13px;border:1px dashed var(--line2);border-radius:999px;padding:8px 13px;color:var(--tx2);background:transparent}.quick button:active{background:rgba(255,255,255,.06);transform:scale(.96)}
 .stepper{display:flex;align-items:center;gap:14px}
@@ -675,7 +676,7 @@ function setHTML(id,h){ const e=document.getElementById(id); if(e) e.innerHTML=h
 /* ----- 타임라인 ----- */
 function renderTimeline(){
   const steps=buildSteps(), at=nowMinutes(), idx=currentStepIndex(steps,at);
-  let html=destBar()+daySwitcher()+`<div class="topbar"><h2>Day ${curDay+1} 동선</h2><button class="icbtn" onclick="shareLink()" title="공유">🔗</button></div><div class="wrap">`;
+  let html=destBar()+daySwitcher()+`<div class="topbar"><h2>Day ${curDay+1} 동선</h2><button class="icbtn" onclick="openShare()" title="공유·내보내기">🔗</button></div><div class="wrap">`;
   if(steps.length===0){ html+=`<p class="muted">이 날 일정이 비었어요. 편집 탭에서 장소를 추가하세요.</p></div>`; return html; }
   let lastR=null;
   steps.forEach((s,i)=>{
@@ -691,8 +692,10 @@ function renderTimeline(){
         <div class="tl-meta">${meta}</div><div class="tl-acts"><button class="go" onclick="openRoute(${stepArg(s)})">🧭 길찾기</button>${s.kind==="place"?`<button onclick="openTimeEdit('${pid}')">⏱ 시각</button>`:""}</div></div>
       ${s.kind==="place"?`<div class="move"><button onclick="movePlace('${s.place.id}',-1)">▲</button><button onclick="movePlace('${s.place.id}',1)">▼</button></div>`:`<div class="move"></div>`}</div>`;
   });
-  html+=`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button>
-    <button class="btn line" style="margin-top:8px" onclick="autoCluster()">🧩 권역끼리만 묶기</button></div>`; return html;
+  html+=`<div class="recbtn" style="margin-top:12px"><button onclick="openMap()">🗺️ 지도로 보기</button><button onclick="openBudget()">🧮 경비 정산</button></div>
+    <button class="btn primary" style="margin-top:4px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button>
+    <button class="btn line" style="margin-top:8px" onclick="autoCluster()">🧩 권역끼리만 묶기</button>
+    ${budgetCard()}</div>`; return html;
 }
 function typeIc(s){ if(s.kind==="air")return "🛬"; if(s.kind==="stay")return "🏨"; return TYPE_META[s.place.type].ic; }
 function gotoEdit(){ setTab("edit"); }
@@ -700,7 +703,7 @@ function gotoEdit(){ setTab("edit"); }
 /* ----- 편집 ----- */
 function renderEdit(){
   const day=TRIP.days[curDay];
-  return `${destBar()}${daySwitcher()}<div class="topbar"><h2>입력 · 편집</h2><button class="icbtn" onclick="shareLink()" title="공유 링크">🔗</button></div><div class="wrap">
+  return `${destBar()}${daySwitcher()}<div class="topbar"><h2>입력 · 편집</h2><button class="icbtn" onclick="openShare()" title="공유·내보내기">🔗</button></div><div class="wrap">
     <div class="assist"><div style="flex:none">${mascot(skyMoodNow(),false,assistEmo(),true)}</div><div class="ab">${assistantTip()}</div></div>
     <div class="sec-title">📍 여행지</div>
     <button class="btn line" onclick="openDestPicker()">🗺️ 지도에서 도시 고르기 — 현재: ${escapeHtml(dest())}</button>
@@ -717,7 +720,7 @@ function renderEdit(){
         <input class="input" type="time" value="${TRIP.arrival?TRIP.arrival.time:"10:30"}" onchange="setArrival('time',this.value)"></div></div>`:""}
     <div class="sec-title">🛏️ Day ${curDay+1} · ${mdLabel(curDate())}</div>
     <div class="field"><label>이 날 시작 시각</label><input class="input" type="time" value="${day.start}" onchange="setDayStart(this.value)"></div>
-    ${day.stay?`<div class="added"><div class="i" style="background:rgba(167,139,250,.18)">🏨</div><div class="nm"><b>${escapeHtml(day.stay.name)}</b><span>오늘 밤 숙소 · ${escapeHtml(day.stay.area)}</span></div><button class="del" onclick="removeStay()">×</button></div>`:`<p class="muted" style="margin:0 0 10px">오늘 밤 숙소: 아래 '직접 추가'에서 종류를 🏨숙소로 선택해 넣으세요.</p>`}
+    ${day.stay?`<div class="added"><div class="i" style="background:rgba(167,139,250,.18)">🏨</div><div class="nm"><b>${escapeHtml(day.stay.name)}</b><span>오늘 밤 숙소 · ${escapeHtml(day.stay.area)}</span></div><input class="costin" inputmode="numeric" enterkeyhint="done" placeholder="₩" value="${placeCost(day.stay)||""}" onchange="setStayCost(this.value)"><button class="del" onclick="removeStay()">×</button></div>`:`<p class="muted" style="margin:0 0 10px">오늘 밤 숙소: 아래 '직접 추가'에서 종류를 🏨숙소로 선택해 넣으세요.</p>`}
     <div class="sec-title">✨ 추천 받기</div>
     <div class="recbtn"><button onclick="openMustVisit()" style="background:linear-gradient(135deg,#ffb84d,#ff8a3d);border-color:#ff8a3d;color:#1a1205;font-weight:800">⚡ ${escapeHtml(dest())} 꼭 가야 할 곳 한 번에 담기</button></div>
     <div class="recbtn"><button onclick="openRec('eat')">🍜 맛집 추천</button><button onclick="openRec('play')">🎡 놀거리·볼거리</button></div>
@@ -737,7 +740,7 @@ function renderEdit(){
       <div class="checks" style="margin-bottom:12px"><button class="ck" id="ckReserve">예약 필수</button><button class="ck" id="ckCash">현금만</button><button class="ck" id="ckIndoor">실내</button></div></div>
     <div id="seeIndoor" class="field hide"><label>실내/야외</label><div class="checks"><button class="ck on" id="seeOut" onclick="toggleSeeIndoor(false)">야외</button><button class="ck" id="seeIn" onclick="toggleSeeIndoor(true)">실내</button></div></div>
     <button class="btn primary" onclick="addManual()">＋ 추가</button>
-    <div class="sec-title">📋 Day ${curDay+1} 추가된 곳 (${day.places.length})</div>
+    <div class="sec-title" style="justify-content:space-between">📋 Day ${curDay+1} 추가된 곳 (${day.places.length})${day.places.length||day.stay?`<span style="font-size:13px;font-weight:700;color:var(--accent)">💰 <span id="dayCostV">${won(dayCost(curDay))}</span></span>`:""}</div>
     <div id="placeList">${renderPlaceList()}</div>
     ${day.places.length>=2?`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button><p class="muted" style="margin:6px 2px 0;font-size:12px">맛집은 아침·점심·저녁 시간에 자동 배정, 볼거리는 가까운 순으로 엮어 동선을 최소화해요.</p>`:""}
     <button class="btn line" style="margin-top:16px" onclick="resetTrip()">전체 초기화</button>
@@ -747,7 +750,84 @@ function renderPlaceList(){ const day=TRIP.days[curDay];
   if(day.places.length===0) return `<p class="muted">아직 없어요. 추천·빠른추가·직접추가로 넣어보세요.</p>`;
   return day.places.map(p=>`<div class="added"><div class="i" style="background:${TYPE_META[p.type].color}28">${TYPE_META[p.type].ic}</div>
     <div class="nm"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.area||"")} · ${TYPE_META[p.type].label}${p.meal?(" · "+mealLabel(p.meal)):""}${p.indoor?" · 실내":""}</span></div>
+    <input class="costin" inputmode="numeric" enterkeyhint="done" placeholder="₩" value="${placeCost(p)||""}" onchange="setCost('${p.id}',this.value)">
     <button class="del" onclick="removePlace('${p.id}')">×</button></div>`).join(""); }
+
+/* ====================================================================  💰 경비 · 🗺️ 지도 · 📤 공유  ==================================================================== */
+function toCost(v){ const n=Math.round(toNum(String(v==null?"":v).replace(/[^0-9.]/g,""))); return n>0?n:0; }
+function placeCost(p){ return p?toCost(p.cost):0; }
+function dayCost(di){ const d=TRIP&&TRIP.days[di]; if(!d) return 0; let s=0; d.places.forEach(p=>s+=placeCost(p)); if(d.stay) s+=placeCost(d.stay); return s; }
+function tripCost(){ let s=0; for(let i=0;i<TRIP.days.length;i++) s+=dayCost(i); return s; }
+function people(){ return Math.max(1,Math.min(20,Math.round(TRIP.people||1))); }
+function won(n){ return (n||0).toLocaleString("ko-KR")+"원"; }
+function findPlaceAny(id){ const d=TRIP.days[curDay]; let p=d.places.find(x=>x.id===id); if(!p&&d.stay&&d.stay.id===id) p=d.stay; return p; }
+function refreshDayCost(){ const e=document.getElementById("dayCostV"); if(e) e.textContent=won(dayCost(curDay)); }
+function setCost(id,v){ const p=findPlaceAny(id); if(!p) return; p.cost=toCost(v); save(); refreshDayCost(); }
+function setStayCost(v){ const s=TRIP.days[curDay].stay; if(!s) return; s.cost=toCost(v); save(); refreshDayCost(); }
+function setPeople(d){ TRIP.people=Math.max(1,Math.min(20,people()+d)); save(); openBudget(); }
+
+function budgetCard(){ const dc=dayCost(curDay), tc=tripCost();
+  if(tc<=0) return `<div class="card" style="margin-top:14px;text-align:center;padding:16px"><div class="now-sub">💰 편집 탭에서 장소별 금액을 입력하면<br>Day별 합계와 1인 분담액을 계산해줘요</div><button class="btn line" style="margin-top:10px" onclick="setTab('edit')">✏️ 편집에서 금액 입력</button></div>`;
+  return `<div class="card" style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="chip">💰 Day ${curDay+1} 경비</span><b style="font-size:20px">${won(dc)}</b></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px"><span class="now-sub">전체 ${TRIP.nights+1}일 합계</span><b style="font-size:16px;color:var(--accent)">${won(tc)}</b></div>
+    ${people()>1?`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px"><span class="now-sub">1인 분담 (${people()}명)</span><b style="font-size:16px;color:var(--ok)">${won(Math.ceil(tc/people()))}</b></div>`:""}
+    <button class="btn line" style="margin-top:12px" onclick="openBudget()">🧮 경비 정산 자세히</button></div>`; }
+
+function openBudget(){ const tc=tripCost(); let rows="";
+  for(let i=0;i<TRIP.days.length;i++){ const dc=dayCost(i); rows+=`<div class="added" style="margin-bottom:6px"><div class="i" style="background:rgba(90,147,255,.18);font-size:14px;font-weight:700">${i+1}</div><div class="nm"><b>Day ${i+1}</b><span>${mdLabel(dayDateStr(i))} · ${escapeHtml(dayCityRaw(i).city)}</span></div><b style="font-size:15px">${won(dc)}</b></div>`; }
+  openSheet(`<h3>🧮 경비 정산</h3>
+   <div class="field"><label>함께 가는 인원</label><div class="stepper"><button onclick="setPeople(-1)">−</button><span class="v">${people()}명</span><button onclick="setPeople(1)">＋</button></div></div>
+   ${rows}
+   <div class="card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span>전체 합계</span><b style="font-size:22px;color:var(--accent)">${won(tc)}</b></div>
+   ${people()>1?`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px"><span class="now-sub">1인당 (${people()}명)</span><b style="font-size:18px;color:var(--ok)">${won(Math.ceil(tc/people()))}</b></div>`:""}</div>
+   <p class="muted" style="margin-top:12px;text-align:center">금액은 편집 탭의 각 장소 칸(₩)에 입력해요 · 교통·기타비는 장소로 추가해 넣으면 합산됩니다</p>`); }
+
+function openMap(){ const steps=buildSteps().filter(s=>s.lat&&s.lng);
+  openSheet(`<h3>🗺️ Day ${curDay+1} 동선 지도</h3><div id="mapBox" style="width:100%;height:58dvh;border-radius:14px;overflow:hidden;background:#0d1422;position:relative"></div>
+   <p class="muted" style="margin-top:10px;font-size:12px;text-align:center">번호 = 방문 순서 · 파란선 = 이동 동선 · 마커를 누르면 카카오맵 길찾기</p>`);
+  const box=document.getElementById("mapBox");
+  if(!steps.length){ box.innerHTML=`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center"><span class="muted">표시할 장소가 없어요.<br>편집 탭에서 장소를 추가하세요.</span></div>`; return; }
+  box.innerHTML=`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="muted">지도 불러오는 중…</span></div>`;
+  loadKakao().then(ok=>{ const b=document.getElementById("mapBox"); if(!b) return;
+    if(!ok||!window.kakao||!kakao.maps||!kakao.maps.Map){ b.innerHTML=`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center"><span class="muted">지도를 불러오지 못했어요.<br>잠시 후 다시 시도하거나, 길찾기는 각 일정의 🧭 버튼을 이용하세요.</span></div>`; return; }
+    b.innerHTML="";
+    const map=new kakao.maps.Map(b,{center:new kakao.maps.LatLng(steps[0].lat,steps[0].lng),level:7});
+    const bounds=new kakao.maps.LatLngBounds(), path=[];
+    steps.forEach((s,i)=>{ const pos=new kakao.maps.LatLng(s.lat,s.lng); bounds.extend(pos); path.push(pos);
+      const col=s.kind==="air"?"#3fe39a":s.kind==="stay"?"#a78bfa":TYPE_META[s.place.type].color;
+      const label=s.kind==="air"?"🛬":s.kind==="stay"?"🏨":(i+1);
+      const el=document.createElement("div"); el.style.cssText="display:flex;flex-direction:column;align-items:center;cursor:pointer";
+      el.innerHTML=`<div style="background:${col};color:#fff;min-width:24px;height:24px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.45);padding:0 4px">${label}</div><div style="margin-top:3px;background:rgba(10,14,23,.86);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:7px;white-space:nowrap;max-width:128px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(s.name)}</div>`;
+      el.onclick=()=>openRoute(s.name,s.lat,s.lng);
+      new kakao.maps.CustomOverlay({map,position:pos,content:el,yAnchor:1,zIndex:10+i}); });
+    if(path.length>1) new kakao.maps.Polyline({map,path,strokeWeight:4,strokeColor:"#5a93ff",strokeOpacity:.9,strokeStyle:"solid"});
+    const fit=()=>{ if(!document.getElementById("mapBox")) return; map.relayout(); if(steps.length>1) map.setBounds(bounds,46,46,46,46); else map.setCenter(new kakao.maps.LatLng(steps[0].lat,steps[0].lng)); };
+    fit(); setTimeout(fit,240); }); }
+
+function tripText(){ let out=`📍 ${dest()} 여행 · ${TRIP.nights}박 ${TRIP.nights+1}일\n🗓️ ${fmtDate(TRIP.startDate)} 출발\n`;
+  for(let di=0; di<TRIP.days.length; di++){ const steps=buildSteps(di); out+=`\n━━ Day ${di+1} · ${mdLabel(dayDateStr(di))} ━━\n`;
+    if(!steps.length){ out+="  (일정 없음)\n"; continue; }
+    steps.forEach(s=>{ if(s.travel) out+=`   ↓ ${MODES[TRIP.mode||"transit"].ic} ${s.travel}분\n`;
+      const c=s.kind==="place"?placeCost(s.place):(s.kind==="stay"&&TRIP.days[di].stay?placeCost(TRIP.days[di].stay):0);
+      out+=`${minToHM(s.arrive).slice(0,5)} ${typeIc(s)} ${s.name}${c>0?" · "+won(c):""}\n`; });
+    const dc=dayCost(di); if(dc>0) out+=`   💰 Day ${di+1} 합계 ${won(dc)}\n`; }
+  const tc=tripCost(); if(tc>0){ out+=`\n💰 예상 경비 합계 ${won(tc)}`; if(people()>1) out+=` (${people()}명 · 1인 ${won(Math.ceil(tc/people()))})`; out+="\n"; }
+  out+=`\n🔗 일정 열기: ${location.href}\n— 동선이로 만든 여행 동선`; return out; }
+
+function openShare(){ save(); const txt=tripText();
+  openSheet(`<h3>📤 여행 공유 · 내보내기</h3><p class="muted" style="margin-bottom:12px">동행자에게 편집 가능한 링크나 일정표를 보내세요.</p>
+   <button class="btn primary" onclick="doShareLink()">🔗 링크로 공유 (편집 가능)</button>
+   <button class="btn line" style="margin-top:8px" onclick="doShareText()">📋 일정표 텍스트 보내기</button>
+   <button class="btn line" style="margin-top:8px" onclick="copyTripText()">📄 일정표 복사하기</button>
+   <div style="margin-top:14px"><div class="muted" style="font-size:12px;margin-bottom:6px">미리보기</div>
+   <pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;line-height:1.55;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:12px;max-height:32dvh;overflow:auto;color:var(--tx2);margin:0">${escapeHtml(txt)}</pre></div>`); }
+
+function doShareLink(){ const url=location.href; if(navigator.share){ navigator.share({title:"동선이 여행 동선",url}).catch(()=>{}); } else if(navigator.clipboard){ navigator.clipboard.writeText(url); toast("링크 복사됨 · 카톡으로 붙여넣기"); } else toast("복사를 지원하지 않는 브라우저예요"); }
+function doShareText(){ const text=tripText(); if(navigator.share){ navigator.share({title:dest()+" 여행 일정",text}).catch(()=>{}); } else copyTripText(); }
+function copyTripText(){ const text=tripText();
+  if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>toast("일정표 복사됨 📋")).catch(()=>fallbackCopy(text)); } else fallbackCopy(text); }
+function fallbackCopy(text){ try{ const ta=document.createElement("textarea"); ta.value=text; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast("일정표 복사됨 📋"); }catch(e){ toast("복사 실패 — 미리보기를 길게 눌러 복사하세요"); } }
 
 /* ====================================================================  이벤트  ==================================================================== */
 function bindScreen(){ if(screen==="edit"){ const t=document.getElementById("nType"); if(t){ t.onchange=()=>toggleTypeFields(t.value); toggleTypeFields(t.value); }
