@@ -1,0 +1,16 @@
+{
+  "name": "dongseoni-push-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "동선이 Web Push 알람 서버 — 앱을 꺼도 일정 시각에 알림 발송",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "gen-keys": "web-push generate-vapid-keys"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "web-push": "^3.6.7"
+  }
+}

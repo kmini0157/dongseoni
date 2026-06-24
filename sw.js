@@ -3,6 +3,16 @@ const CACHE = "dongseoni-v2";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg", "./apple-touch-icon-180.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(()=>{}).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+/* 푸시 수신 → 앱이 꺼져 있어도 시스템 알림 표시 */
+self.addEventListener("push", e => {
+  let d = { title: "동선이", body: "일정 알림" };
+  try { if (e.data) d = Object.assign(d, e.data.json()); }
+  catch (_) { try { d.body = e.data.text(); } catch (__) {} }
+  e.waitUntil(self.registration.showNotification(d.title, {
+    body: d.body, icon: "./apple-touch-icon-180.png", badge: "./icon.svg",
+    tag: d.tag || "dongseoni-alarm", renotify: true, data: { url: "./" }, vibrate: [180, 90, 180]
+  }));
+});
 /* 일정 알람 알림 클릭 → 앱으로 포커스(없으면 새로 열기) */
 self.addEventListener("notificationclick", e => {
   e.notification.close();

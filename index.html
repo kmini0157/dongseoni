@@ -251,6 +251,9 @@ body.dnd-active{overscroll-behavior:contain}
 /* ★★★ 공유용 설정 — 아래 두 줄 따옴표 "" 안에 본인 키를 넣으면, 앱 쓰는 사람이 키를 직접 안 넣어도 자동으로 작동합니다 (도메인 잠금이라 노출돼도 안전) ★★★ */
 const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 JavaScript 키 (도메인 잠금) */
 const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
+/* ★★★ 앱을 꺼도 울리는 푸시 알람 설정 — server/ 폴더의 푸시 서버를 배포한 뒤 아래 두 줄을 채우세요. 비워두면 '앱 열림 알람'만 작동합니다 ★★★ */
+const PUSH_SERVER = "";   /* ← 배포한 푸시 서버 주소 (예: "https://dongseoni-push.onrender.com") */
+const VAPID_PUBLIC = "";  /* ← 푸시 서버의 VAPID 공개키 (npx web-push generate-vapid-keys) */
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
 const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
@@ -709,6 +712,7 @@ function renderTimeline(){
   });
   html+=`<div class="recbtn" style="margin-top:12px"><button onclick="openMap()">🗺️ 지도로 보기</button><button onclick="openBudget()">🧮 경비 정산</button></div>
     ${ALARM_ON?`<div class="recbtn" style="margin-top:8px"><button onclick="toggleAlarm()">🔔 알람 켜짐 · 끄기</button><button onclick="testAlarm()">🔊 알람 테스트</button></div>`:`<button class="btn line" style="margin-top:8px" onclick="toggleAlarm()">🔕 일정 알람 켜기 — 일정 시각에 울림</button>`}
+    ${pushConfigured()?`<button class="btn line" style="margin-top:8px" onclick="${pushEnabled()?"disablePush()":"enablePush()"}">${pushEnabled()?"📲 앱 꺼도 알람(푸시) ON · 끄기":"📲 앱 꺼도 알람 받기 — 푸시 켜기"}</button>`:""}
     <button class="btn primary" style="margin-top:8px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button>
     <button class="btn line" style="margin-top:8px" onclick="autoCluster()">🧩 권역끼리만 묶기</button>
     ${budgetCard()}</div>`; return html;
@@ -872,7 +876,7 @@ function toggleAlarm(){ ALARM_ON=!ALARM_ON; try{ localStorage.setItem("dongseoni
   if(screen==="timeline") render(); }
 function requestNotify(){ try{ if("Notification" in window && Notification.permission==="default") Notification.requestPermission().catch(()=>{}); }catch(e){} }
 function clearAlarms(){ alarmTimers.forEach(t=>clearTimeout(t)); alarmTimers=[]; }
-function rescheduleAlarmsSoon(){ if(!ALARM_ON) return; clearTimeout(_alarmReschedT); _alarmReschedT=setTimeout(scheduleAlarms,1200); }
+function rescheduleAlarmsSoon(){ clearTimeout(_alarmReschedT); _alarmReschedT=setTimeout(()=>{ scheduleAlarms(); syncPush(); },1200); }
 function scheduleAlarms(){ clearAlarms(); if(!ALARM_ON||!TRIP) return;
   const today=todayStr(); let di=-1; for(let i=0;i<TRIP.days.length;i++){ if(dayDateStr(i)===today){ di=i; break; } }
   if(di<0) return;   // 오늘이 여행일이 아니면 예약 없음(여행일 당일 자동 적용)
@@ -897,6 +901,35 @@ function beep(){ try{ const AC=window.AudioContext||window.webkitAudioContext; i
   [0,0.18].forEach((off,i)=>{ const o=ctx.createOscillator(),g=ctx.createGain(); o.type="sine"; o.frequency.value=i?660:880; o.connect(g); g.connect(ctx.destination);
     const t0=ctx.currentTime+off; g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.35,t0+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+0.16); o.start(t0); o.stop(t0+0.17); }); }catch(e){} }
 function testAlarm(){ requestNotify(); fireAlarm("arrive",{name:dest()+" 첫 일정",arrive:nowMinutes(),travel:0}); }
+
+/* ----- 📲 푸시 알람 (앱을 꺼도 일정 시각에 울림 · 푸시 서버 필요) ----- */
+function pushConfigured(){ return !!(PUSH_SERVER && VAPID_PUBLIC && "serviceWorker" in navigator && "PushManager" in window); }
+function pushEnabled(){ try{ return localStorage.getItem("dongseoni_push")==="1"; }catch(e){ return false; } }
+function urlB64ToUint8Array(b64){ const pad="=".repeat((4-b64.length%4)%4); const s=(b64+pad).replace(/-/g,"+").replace(/_/g,"/"); const raw=atob(s); const a=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++) a[i]=raw.charCodeAt(i); return a; }
+/* 모든 날짜의 미래 일정에 대해 절대시각(ms) 알람 목록 생성 — 서버가 그 시각에 푸시 발송 */
+function buildAllAlarms(){ const out=[]; if(!TRIP) return out; const now=Date.now();
+  for(let di=0;di<TRIP.days.length;di++){ const base=new Date(dayDateStr(di)+"T00:00:00");
+    buildSteps(di).forEach(s=>{ if(!s.name) return; const fires=[];
+      if(s.travel||s.kind==="air") fires.push({min:s.arrive-10,kind:"soon"});
+      fires.push({min:s.arrive,kind:"arrive"});
+      fires.forEach(f=>{ if(f.min<0) return; const at=new Date(base.getFullYear(),base.getMonth(),base.getDate(),Math.floor(f.min/60),f.min%60,0,0).getTime();
+        if(at<=now+15000) return;
+        const t=minToHM(f.min).slice(0,5);
+        out.push({id:`d${di}-${f.min}-${f.kind}`,at,title:(f.kind==="soon"?`⏰ 곧 이동 · ${s.name}`:`📍 ${t} ${s.name}`),body:(f.kind==="soon"?`10분 뒤 ${s.name}(으)로 이동할 시간이에요`:`이제 ${s.name} 일정 시간이에요`)}); }); }); }
+  return out.slice(0,200); }
+async function enablePush(){ if(!pushConfigured()){ toast("푸시 서버가 설정되지 않았어요 (server/ 배포 후 주소·키 입력)"); return false; }
+  try{ const perm=await Notification.requestPermission(); if(perm!=="granted"){ toast("알림 권한이 필요해요"); return false; }
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8Array(VAPID_PUBLIC)});
+    try{ localStorage.setItem("dongseoni_push","1"); }catch(e){}
+    await syncPush(); toast("📲 푸시 알람 켜짐 — 앱을 꺼도 일정 시각에 울려요"); if(screen==="timeline") render(); return true;
+  }catch(e){ toast("푸시 등록 실패 — 잠시 후 다시 시도하세요"); return false; } }
+async function disablePush(){ try{ const reg=await navigator.serviceWorker.ready; const sub=await reg.pushManager.getSubscription();
+    if(sub){ fetch(PUSH_SERVER+"/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{}); await sub.unsubscribe().catch(()=>{}); } }catch(e){}
+  try{ localStorage.setItem("dongseoni_push","0"); }catch(e){} toast("📴 푸시 알람을 껐어요"); if(screen==="timeline") render(); }
+async function syncPush(){ if(!pushEnabled()||!pushConfigured()) return; try{ const reg=await navigator.serviceWorker.ready; const sub=await reg.pushManager.getSubscription(); if(!sub) return;
+    await fetch(PUSH_SERVER+"/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub,alarms:buildAllAlarms()})}); }catch(e){} }
 
 /* ----- 📥 공유받은 계획 그대로 가져오기 ----- */
 let PENDING_SHARE=null;
@@ -1470,7 +1503,7 @@ function buildImport(){
   const off=Math.round((new Date(todayStr())-new Date(TRIP.startDate))/86400000); curDay=(off>=0&&off<daysCount())?off:0;
   screen=hasData?"home":"edit"; setTab(screen,false); render();
   const c=cityObj(); await ensureWeather(c.lat,c.lng); lastSkyMood=null; lastMascot=""; render();
-  scheduleAlarms();
+  scheduleAlarms(); syncPush();
   if(PENDING_SHARE) setTimeout(openImportShared,450);   // 공유받은 계획 그대로 가져오기 안내
 })();
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) rescheduleAlarmsSoon(); });
