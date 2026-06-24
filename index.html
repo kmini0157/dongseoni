@@ -155,6 +155,21 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .added .nm{flex:1;min-width:0}.added .nm b{font-size:14px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.added .nm span{font-size:12px;color:var(--tx2)}
 .added .del{color:var(--tx3);font-size:18px;padding:4px}
 .costin{width:74px;height:34px;flex:none;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:9px;color:var(--tx);padding:0 8px;font-size:13px;text-align:right}.costin:focus{border-color:var(--accent);outline:none}
+.adov{position:fixed;inset:0;z-index:100;background:rgba(4,7,12,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;animation:adfade .25s both}
+@keyframes adfade{from{opacity:0}to{opacity:1}}
+.adcard{width:100%;max-width:360px;background:#121a28;border:1px solid var(--line2);border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.55);animation:sheetUp .3s cubic-bezier(.2,.9,.3,1)}
+.adtop{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)}
+.adtag{font-size:11px;font-weight:800;color:#0a0e17;background:#ffbf5e;border-radius:6px;padding:3px 8px;letter-spacing:.5px}
+.adx{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.08);color:var(--tx2);font-size:15px;opacity:.4;transition:all .2s}
+.adx.ready{opacity:1;background:var(--accent);color:#fff}
+.adbody{padding:32px 20px;text-align:center;background:linear-gradient(160deg,#1b2a47,#121a28)}
+.adill{font-size:62px;line-height:1}
+.adttl{font-size:20px;font-weight:800;margin-top:12px}
+.adsub{font-size:13px;color:var(--tx2);margin-top:6px;line-height:1.5}
+.adfoot{padding:14px 16px}
+.adbar{height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.adbar i{display:block;height:100%;width:0;background:var(--accent);transition:width 1s linear}
+.adcount{font-size:12px;color:var(--tx2);text-align:center;margin-top:8px;font-weight:600}
 .quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .quick button{font-size:13px;border:1px dashed var(--line2);border-radius:999px;padding:8px 13px;color:var(--tx2);background:transparent}.quick button:active{background:rgba(255,255,255,.06);transform:scale(.96)}
 .stepper{display:flex;align-items:center;gap:14px}
@@ -397,7 +412,7 @@ function loadTrips(){
   const legacy=localStorage.getItem("dongseoni_trip"); if(legacy){ try{ const t=JSON.parse(legacy); if(t){ ACTIVE=uid(); TRIPS=[{id:ACTIVE,name:"내 여행",updatedAt:Date.now(),trip:t}]; writeTrips(); return; } }catch(e){} }
   TRIPS=[]; ACTIVE=""; }
 function persist(){ if(!TRIP) return; let e=activeEntry(); if(!e){ if(!ACTIVE) ACTIVE=uid(); e={id:ACTIVE,name:"내 여행",updatedAt:0,trip:TRIP}; TRIPS.push(e); } e.trip=TRIP; e.updatedAt=Date.now(); writeTrips(); }
-function save(){ if(!TRIP) return; persist(); try{ history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} }
+function save(){ if(!TRIP) return; persist(); try{ history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} if(typeof rescheduleAlarmsSoon==="function") rescheduleAlarmsSoon(); }
 function hashTrip(){ const m=location.hash.match(/#t=(.+)$/); if(m){ const t=migrate(decodeTrip(m[1])); if(t&&Array.isArray(t.days)) return t; } return null; }
 function lsTrip(){ const e=activeEntry(); if(e){ const t=migrate(e.trip); if(t&&Array.isArray(t.days)) return t; } return null; }
 function load(){ return hashTrip()||lsTrip(); }
@@ -676,7 +691,7 @@ function setHTML(id,h){ const e=document.getElementById(id); if(e) e.innerHTML=h
 /* ----- 타임라인 ----- */
 function renderTimeline(){
   const steps=buildSteps(), at=nowMinutes(), idx=currentStepIndex(steps,at);
-  let html=destBar()+daySwitcher()+`<div class="topbar"><h2>Day ${curDay+1} 동선</h2><button class="icbtn" onclick="openShare()" title="공유·내보내기">🔗</button></div><div class="wrap">`;
+  let html=destBar()+daySwitcher()+`<div class="topbar"><h2>Day ${curDay+1} 동선</h2><button class="icbtn" onclick="shareWithAd()" title="공유·내보내기">🔗</button></div><div class="wrap">`;
   if(steps.length===0){ html+=`<p class="muted">이 날 일정이 비었어요. 편집 탭에서 장소를 추가하세요.</p></div>`; return html; }
   let lastR=null;
   steps.forEach((s,i)=>{
@@ -693,7 +708,8 @@ function renderTimeline(){
       ${s.kind==="place"?`<div class="move"><button onclick="movePlace('${s.place.id}',-1)">▲</button><button onclick="movePlace('${s.place.id}',1)">▼</button></div>`:`<div class="move"></div>`}</div>`;
   });
   html+=`<div class="recbtn" style="margin-top:12px"><button onclick="openMap()">🗺️ 지도로 보기</button><button onclick="openBudget()">🧮 경비 정산</button></div>
-    <button class="btn primary" style="margin-top:4px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button>
+    ${ALARM_ON?`<div class="recbtn" style="margin-top:8px"><button onclick="toggleAlarm()">🔔 알람 켜짐 · 끄기</button><button onclick="testAlarm()">🔊 알람 테스트</button></div>`:`<button class="btn line" style="margin-top:8px" onclick="toggleAlarm()">🔕 일정 알람 켜기 — 일정 시각에 울림</button>`}
+    <button class="btn primary" style="margin-top:8px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button>
     <button class="btn line" style="margin-top:8px" onclick="autoCluster()">🧩 권역끼리만 묶기</button>
     ${budgetCard()}</div>`; return html;
 }
@@ -703,7 +719,7 @@ function gotoEdit(){ setTab("edit"); }
 /* ----- 편집 ----- */
 function renderEdit(){
   const day=TRIP.days[curDay];
-  return `${destBar()}${daySwitcher()}<div class="topbar"><h2>입력 · 편집</h2><button class="icbtn" onclick="openShare()" title="공유·내보내기">🔗</button></div><div class="wrap">
+  return `${destBar()}${daySwitcher()}<div class="topbar"><h2>입력 · 편집</h2><button class="icbtn" onclick="shareWithAd()" title="공유·내보내기">🔗</button></div><div class="wrap">
     <div class="assist"><div style="flex:none">${mascot(skyMoodNow(),false,assistEmo(),true)}</div><div class="ab">${assistantTip()}</div></div>
     <div class="sec-title">📍 여행지</div>
     <button class="btn line" onclick="openDestPicker()">🗺️ 지도에서 도시 고르기 — 현재: ${escapeHtml(dest())}</button>
@@ -828,6 +844,79 @@ function doShareText(){ const text=tripText(); if(navigator.share){ navigator.sh
 function copyTripText(){ const text=tripText();
   if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>toast("일정표 복사됨 📋")).catch(()=>fallbackCopy(text)); } else fallbackCopy(text); }
 function fallbackCopy(text){ try{ const ta=document.createElement("textarea"); ta.value=text; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); toast("일정표 복사됨 📋"); }catch(e){ toast("복사 실패 — 미리보기를 길게 눌러 복사하세요"); } }
+
+/* ----- 📺 광고 보고 공유하기 (수익화) ----- */
+let _adPassUntil=0, _adTimer=null;
+function sharePassActive(){ return Date.now()<_adPassUntil; }
+function shareWithAd(){ if(sharePassActive()){ openShare(); return; } showRewardAd(()=>{ _adPassUntil=Date.now()+10*60*1000; openShare(); }); }
+function showRewardAd(onReward){ if(document.getElementById("adov")) return; const SEC=5; let left=SEC;
+  const ov=document.createElement("div"); ov.className="adov"; ov.id="adov";
+  /* 실제 수익화: 아래 .adbody 영역을 AdSense/AdMob 보상형(rewarded) 광고 단위로 교체하세요. 시청 완료 콜백에서 close(true) 호출 */
+  ov.innerHTML=`<div class="adcard"><div class="adtop"><span class="adtag">광고 · AD</span><button class="adx" id="adx" disabled>✕</button></div>
+    <div class="adbody"><div class="adill">🏝️</div><div class="adttl">여행할 땐 든든하게</div><div class="adsub">○○트래블 카드 · 해외결제 3% 적립<br><span style="opacity:.65">Sponsored</span></div></div>
+    <div class="adfoot"><div class="adbar"><i id="adbarfill"></i></div><div class="adcount" id="adcount">${left}초 후 공유할 수 있어요</div></div></div>`;
+  document.body.appendChild(ov);
+  const xbtn=ov.querySelector("#adx");
+  const close=rewarded=>{ if(_adTimer){ clearInterval(_adTimer); _adTimer=null; } ov.remove(); if(rewarded&&onReward) onReward(); };
+  xbtn.onclick=()=>{ if(!xbtn.disabled) close(true); };
+  _adTimer=setInterval(()=>{ left--; const f=document.getElementById("adbarfill"); if(f) f.style.width=Math.round((SEC-left)/SEC*100)+"%"; const c=document.getElementById("adcount");
+    if(left<=0){ clearInterval(_adTimer); _adTimer=null; if(c) c.textContent="✅ 시청 완료! ✕를 눌러 공유하세요"; if(xbtn){ xbtn.disabled=false; xbtn.classList.add("ready"); } }
+    else if(c) c.textContent=left+"초 후 공유할 수 있어요"; },1000); }
+
+/* ----- 🔔 일정 알람 (앱이 열려 있을 때 일정 시각에 울림) ----- */
+let ALARM_ON=false, alarmTimers=[], _alarmReschedT=null, _audioCtx=null;
+try{ ALARM_ON=localStorage.getItem("dongseoni_alarm")==="1"; }catch(e){}
+function toggleAlarm(){ ALARM_ON=!ALARM_ON; try{ localStorage.setItem("dongseoni_alarm",ALARM_ON?"1":"0"); }catch(e){}
+  if(ALARM_ON){ requestNotify(); scheduleAlarms(); toast("🔔 알람 켜짐 — 일정 시각에 울려드려요"); }
+  else { clearAlarms(); toast("🔕 알람을 껐어요"); }
+  if(screen==="timeline") render(); }
+function requestNotify(){ try{ if("Notification" in window && Notification.permission==="default") Notification.requestPermission().catch(()=>{}); }catch(e){} }
+function clearAlarms(){ alarmTimers.forEach(t=>clearTimeout(t)); alarmTimers=[]; }
+function rescheduleAlarmsSoon(){ if(!ALARM_ON) return; clearTimeout(_alarmReschedT); _alarmReschedT=setTimeout(scheduleAlarms,1200); }
+function scheduleAlarms(){ clearAlarms(); if(!ALARM_ON||!TRIP) return;
+  const today=todayStr(); let di=-1; for(let i=0;i<TRIP.days.length;i++){ if(dayDateStr(i)===today){ di=i; break; } }
+  if(di<0) return;   // 오늘이 여행일이 아니면 예약 없음(여행일 당일 자동 적용)
+  const now=new Date(), nowMs=now.getTime();
+  buildSteps(di).forEach(s=>{ if(!s.name) return; const fires=[];
+    if(s.travel||s.kind==="air") fires.push({min:s.arrive-10,kind:"soon"});
+    fires.push({min:s.arrive,kind:"arrive"});
+    fires.forEach(f=>{ if(f.min<0) return;
+      const at=new Date(now.getFullYear(),now.getMonth(),now.getDate(),Math.floor(f.min/60),f.min%60,0,0).getTime();
+      const delay=at-nowMs; if(delay<=0||delay>20*3600*1000) return;
+      alarmTimers.push(setTimeout(()=>fireAlarm(f.kind,s),delay)); }); }); }
+function fireAlarm(kind,s){ const t=minToHM(s.arrive).slice(0,5);
+  const title=kind==="soon"?`⏰ 곧 이동 · ${s.name}`:`📍 ${t} ${s.name}`;
+  const body=kind==="soon"?`10분 뒤 ${s.name}(으)로 이동할 시간이에요`:`이제 ${s.name} 일정 시간이에요`;
+  try{ if(navigator.vibrate) navigator.vibrate([180,90,180]); }catch(e){}
+  beep(); notify(title,body); toast(`🔔 ${title}`); }
+function notify(title,body){ try{ if(!("Notification" in window)||Notification.permission!=="granted") return;
+  const opt={body,icon:"./apple-touch-icon-180.png",badge:"./icon.svg",tag:"dongseoni-alarm",renotify:true,vibrate:[180,90,180]};
+  if(navigator.serviceWorker&&navigator.serviceWorker.ready){ navigator.serviceWorker.ready.then(reg=>{ try{ reg.showNotification(title,opt); }catch(e){ try{ new Notification(title,{body}); }catch(_){}} }).catch(()=>{ try{ new Notification(title,{body}); }catch(_){}}); }
+  else new Notification(title,{body}); }catch(e){} }
+function beep(){ try{ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; _audioCtx=_audioCtx||new AC(); const ctx=_audioCtx; if(ctx.state==="suspended") ctx.resume();
+  [0,0.18].forEach((off,i)=>{ const o=ctx.createOscillator(),g=ctx.createGain(); o.type="sine"; o.frequency.value=i?660:880; o.connect(g); g.connect(ctx.destination);
+    const t0=ctx.currentTime+off; g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.35,t0+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+0.16); o.start(t0); o.stop(t0+0.17); }); }catch(e){} }
+function testAlarm(){ requestNotify(); fireAlarm("arrive",{name:dest()+" 첫 일정",arrive:nowMinutes(),travel:0}); }
+
+/* ----- 📥 공유받은 계획 그대로 가져오기 ----- */
+let PENDING_SHARE=null;
+function shareTripCost(t){ let s=0; (t.days||[]).forEach(d=>{ (d.places||[]).forEach(p=>s+=toCost(p.cost)); if(d.stay) s+=toCost(d.stay.cost); }); return s; }
+function openImportShared(){ const t=PENDING_SHARE; if(!t) return;
+  let places=0; (t.days||[]).forEach(d=>{ places+=((d.places||[]).length)+(d.stay?1:0); });
+  const tot=shareTripCost(t); const city=(t.dest&&t.dest.city)||(t.days&&t.days[0]&&t.days[0].city)||"여행"; const nights=(t.days?t.days.length-1:0);
+  openSheet(`<h3>📥 공유받은 여행</h3>
+   <div class="card" style="margin:6px 0 12px"><div class="now-place">${escapeHtml(city)} 여행</div>
+     <div class="now-sub" style="margin-top:4px">${nights}박 ${nights+1}일 · 장소 ${places}곳${tot>0?` · 예상 경비 ${won(tot)}`:""}</div></div>
+   <p class="muted" style="margin-bottom:12px">동행자가 짠 계획을 <b>그대로</b> 가져와 내 여행에 추가해요. 가져오면 <b>일정 알람</b>도 함께 켜져 일정 시각에 울려드려요.</p>
+   <button class="btn primary" onclick="acceptShared(true)">📥 이 계획 그대로 가져오기</button>
+   <button class="btn line" style="margin-top:8px" onclick="acceptShared(false)">내 기존 여행 유지</button>`); }
+function acceptShared(yes){ const t=PENDING_SHARE; PENDING_SHARE=null; closeSheet();
+  if(!yes){ TRIP=lsTrip()||TRIP; try{ history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} render(); return; }
+  const id=uid(); TRIPS.push({id,name:"공유받은 여행",updatedAt:Date.now(),trip:t}); ACTIVE=id; TRIP=t; writeTrips();
+  curDay=0; lastSkyMood=null; lastMascot="";
+  if(!ALARM_ON){ ALARM_ON=true; try{ localStorage.setItem("dongseoni_alarm","1"); }catch(e){} requestNotify(); }
+  const off=Math.round((new Date(todayStr())-new Date(TRIP.startDate))/86400000); curDay=(off>=0&&off<daysCount())?off:0;
+  scheduleAlarms(); setTab("timeline",false); render(); toast("📥 공유받은 여행을 가져왔어요"); confetti(); }
 
 /* ====================================================================  이벤트  ==================================================================== */
 function bindScreen(){ if(screen==="edit"){ const t=document.getElementById("nType"); if(t){ t.onchange=()=>toggleTypeFields(t.value); toggleTypeFields(t.value); }
@@ -1372,9 +1461,7 @@ function buildImport(){
 (async function init(){
   loadTrips();
   const _inc=hashTrip(), _mine=lsTrip();
-  if(_inc&&_mine&&encodeTrip(_inc)!==encodeTrip(_mine)){
-    if(confirm("공유받은 여행이 있어요. 새 여행으로 가져올까요?\n(취소하면 내 기존 여행을 그대로 둡니다)")){ const id=uid(); TRIPS.push({id,name:"공유받은 여행",updatedAt:Date.now(),trip:_inc}); ACTIVE=id; TRIP=_inc; writeTrips(); }
-    else { TRIP=_mine; try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} } }
+  if(_inc&&_mine&&encodeTrip(_inc)!==encodeTrip(_mine)){ TRIP=_mine; PENDING_SHARE=_inc; }   // 공유받은 계획은 사용자가 직접 '가져오기' 선택(렌더 후 시트로 안내)
   else TRIP=_inc||_mine||blankTrip();
   KAKAO_KEY=localStorage.getItem("dongseoni_kakao")||DEFAULT_KAKAO; ODSAY_KEY=localStorage.getItem("dongseoni_odsay")||DEFAULT_ODSAY; if(KAKAO_KEY) loadKakao();
   loadKoreaMap().then(km=>{KMAP=km;}).catch(()=>{}); loadCities(); probeOdsay();
@@ -1383,7 +1470,10 @@ function buildImport(){
   const off=Math.round((new Date(todayStr())-new Date(TRIP.startDate))/86400000); curDay=(off>=0&&off<daysCount())?off:0;
   screen=hasData?"home":"edit"; setTab(screen,false); render();
   const c=cityObj(); await ensureWeather(c.lat,c.lng); lastSkyMood=null; lastMascot=""; render();
+  scheduleAlarms();
+  if(PENDING_SHARE) setTimeout(openImportShared,450);   // 공유받은 계획 그대로 가져오기 안내
 })();
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) rescheduleAlarmsSoon(); });
 setInterval(()=>{ if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); },30000);
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
 let deferredPrompt=null;
@@ -1408,7 +1498,7 @@ function maybeInstallHint(){ try{
   if(ios&&safari) setTimeout(()=>showInstallBar("ios"),2600);
 }catch(e){} }
 maybeInstallHint();
-window.addEventListener("hashchange",()=>{ const t=hashTrip(); if(t && encodeTrip(t)!==encodeTrip(TRIP)){ if(confirm("공유받은 여행을 여시겠어요? 지금 편집 중인 여행은 사라집니다.")){ TRIP=t; lastSkyMood=null; render(); } else { try{ history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} } } });
+window.addEventListener("hashchange",()=>{ const t=hashTrip(); if(t && encodeTrip(t)!==encodeTrip(TRIP)){ PENDING_SHARE=t; openImportShared(); } });
 </script>
 </body>
 </html>

@@ -1,8 +1,16 @@
 /* 동선이 서비스워커 — 셸 오프라인 캐시. network-first(온라인=최신, 오프라인=캐시) */
-const CACHE = "dongseoni-v1";
+const CACHE = "dongseoni-v2";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg", "./apple-touch-icon-180.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(()=>{}).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+/* 일정 알람 알림 클릭 → 앱으로 포커스(없으면 새로 열기) */
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ("focus" in c) return c.focus(); }
+    if (self.clients.openWindow) return self.clients.openWindow("./");
+  }));
+});
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   const u = new URL(e.request.url);
