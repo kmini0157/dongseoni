@@ -1,0 +1,4 @@
+# 동선이 ads.txt — AdSense 승인 후, 아래 줄의 pub-0000000000000000 을
+# 본인의 AdSense 퍼블리셔 ID(ca-pub- 뒤 숫자, ca- 없이)로 바꾼 뒤 배포하세요.
+# 예) 퍼블리셔 ID가 ca-pub-1234567890123456 이면 → pub-1234567890123456
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

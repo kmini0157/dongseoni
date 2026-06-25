@@ -170,6 +170,10 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .adbar{height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
 .adbar i{display:block;height:100%;width:0;background:var(--accent);transition:width 1s linear}
 .adcount{font-size:12px;color:var(--tx2);text-align:center;margin-top:8px;font-weight:600}
+.adslotbox{margin-top:14px;border:1px dashed var(--line2);border-radius:14px;background:rgba(255,255,255,.03);overflow:hidden}
+.adslotbox .adlbl{font-size:10px;color:var(--tx3);text-align:center;padding:5px;letter-spacing:1px}
+.adph{min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--tx3);font-size:13px;gap:4px;padding:18px;text-align:center}
+.adslotbox ins{display:block;min-height:90px}
 .quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .quick button{font-size:13px;border:1px dashed var(--line2);border-radius:999px;padding:8px 13px;color:var(--tx2);background:transparent}.quick button:active{background:rgba(255,255,255,.06);transform:scale(.96)}
 .stepper{display:flex;align-items:center;gap:14px}
@@ -256,6 +260,7 @@ const PUSH_SERVER = "";   /* ← 배포한 푸시 서버 주소 (예: "https://d
 const VAPID_PUBLIC = "";  /* ← 푸시 서버의 VAPID 공개키 (npx web-push generate-vapid-keys) */
 /* ★★★ 공유 시 보상형 광고로 수익화 — AdSense 퍼블리셔 ID를 넣으면 실제 광고, 비우면 데모 광고가 뜹니다. 광고차단/오프라인이면 자동으로 공유 잠금이 풀립니다 ★★★ */
 const ADSENSE_CLIENT = "";  /* ← "ca-pub-XXXXXXXXXXXXXXXX" (H5 Games Ads 승인 필요). 비우면 데모 광고 */
+const ADSENSE_BANNER_SLOT = "";  /* ← 디스플레이(배너) 광고 슬롯 ID. 비우면 '광고 자리' placeholder 표시 */
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
 const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
@@ -717,7 +722,7 @@ function renderTimeline(){
     ${pushConfigured()?`<button class="btn line" style="margin-top:8px" onclick="${pushEnabled()?"disablePush()":"enablePush()"}">${pushEnabled()?"📲 앱 꺼도 알람(푸시) ON · 끄기":"📲 앱 꺼도 알람 받기 — 푸시 켜기"}</button>`:""}
     <button class="btn primary" style="margin-top:8px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button>
     <button class="btn line" style="margin-top:8px" onclick="autoCluster()">🧩 권역끼리만 묶기</button>
-    ${budgetCard()}</div>`; return html;
+    ${budgetCard()}${bannerAdHTML()}</div>`; return html;
 }
 function typeIc(s){ if(s.kind==="air")return "🛬"; if(s.kind==="stay")return "🏨"; return TYPE_META[s.place.type].ic; }
 function gotoEdit(){ setTab("edit"); }
@@ -766,7 +771,8 @@ function renderEdit(){
     <div id="placeList">${renderPlaceList()}</div>
     ${day.places.length>=2?`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button><p class="muted" style="margin:6px 2px 0;font-size:12px">맛집은 아침·점심·저녁 시간에 자동 배정, 볼거리는 가까운 순으로 엮어 동선을 최소화해요.</p>`:""}
     <button class="btn line" style="margin-top:16px" onclick="resetTrip()">전체 초기화</button>
-    <p class="muted" style="margin-top:12px;text-align:center">자동 저장됨 · 🔗로 동행자와 공유 · <a onclick="openSettings()" style="color:var(--tx3)">API 직접설정</a></p></div>`;
+    <p class="muted" style="margin-top:12px;text-align:center">자동 저장됨 · 🔗로 동행자와 공유 · <a onclick="openSettings()" style="color:var(--tx3)">API 직접설정</a></p>
+    <p class="muted" style="margin-top:6px;text-align:center;font-size:12px"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--tx3)">개인정보처리방침</a> · <a href="terms.html" target="_blank" rel="noopener" style="color:var(--tx3)">이용약관</a></p></div>`;
 }
 function renderPlaceList(){ const day=TRIP.days[curDay];
   if(day.places.length===0) return `<p class="muted">아직 없어요. 추천·빠른추가·직접추가로 넣어보세요.</p>`;
@@ -871,10 +877,17 @@ function loadAdSense(){ if(_adsenseReq) return _adsenseReq;
     s.src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client="+encodeURIComponent(ADSENSE_CLIENT);
     s.setAttribute("data-ad-frequency-hint","30s");
     let done=false; const fin=v=>{ if(!done){ done=true; res(v); } };
-    s.onload=()=>{ try{ window.adsbygoogle.push({preloadAdBreaks:"on"}); }catch(e){} fin(true); };
+    s.onload=()=>fin(true);
     s.onerror=()=>fin(false); document.head.appendChild(s);
     setTimeout(()=>fin(false),6500);   // 광고차단기 등으로 로드 실패하면 폴백
   }); return _adsenseReq; }
+/* 배너(디스플레이) 광고 — 설정되면 실제 ins, 아니면 '광고 자리' placeholder */
+function bannerAdHTML(){ if(ADSENSE_CLIENT&&ADSENSE_BANNER_SLOT)
+    return `<div class="adslotbox"><div class="adlbl">광고 · AD</div><ins class="adsbygoogle" style="display:block" data-ad-client="${ADSENSE_CLIENT}" data-ad-slot="${ADSENSE_BANNER_SLOT}" data-ad-format="auto" data-full-width-responsive="true"></ins></div>`;
+  return `<div class="adslotbox"><div class="adlbl">광고 · AD</div><div class="adph">🪧 배너 광고 자리<span style="font-size:11px">AdSense 승인·설정 후 자동으로 광고가 노출돼요</span></div></div>`; }
+function initBannerAds(){ if(!(ADSENSE_CLIENT&&ADSENSE_BANNER_SLOT)) return;
+  const inses=document.querySelectorAll("ins.adsbygoogle:not([data-done])"); if(!inses.length) return;
+  loadAdSense().then(ok=>{ if(!ok) return; inses.forEach(ins=>{ if(ins.getAttribute("data-done")) return; ins.setAttribute("data-done","1"); try{ (window.adsbygoogle=window.adsbygoogle||[]).push({}); }catch(e){} }); }); }
 function adsenseReward(onReward){ loadAdSense().then(ok=>{
   if(!ok||!window.adsbygoogle){ autoUnlock(onReward,"광고를 불러올 수 없어요"); return; }
   let settled=false; const finish=g=>{ if(settled) return; settled=true; clearTimeout(to); if(g) onReward(); };
@@ -1001,7 +1014,7 @@ function bindScreen(){ if(screen==="edit"){ const t=document.getElementById("nTy
   document.querySelectorAll("#ckClosed .ck").forEach(b=>b.onclick=()=>b.classList.toggle("on"));
   document.querySelectorAll("#ckMeal .ck").forEach(b=>b.onclick=()=>{ document.querySelectorAll("#ckMeal .ck").forEach(x=>x.classList.remove("on")); b.classList.add("on"); });
   ["ckReserve","ckCash","ckIndoor"].forEach(id=>{const e=document.getElementById(id);if(e)e.onclick=()=>e.classList.toggle("on");}); }
-  if(screen==="timeline") bindTimelineDnD(); }
+  if(screen==="timeline"){ bindTimelineDnD(); initBannerAds(); } }
 /* 길게 눌러 드래그 순서변경 (타임라인) */
 let DND=null; const LP=480, SLOP=10;
 function bindTimelineDnD(){ document.querySelectorAll(".wrap .tl-item[data-pid]").forEach(row=>row.addEventListener("pointerdown",dndDown)); }
