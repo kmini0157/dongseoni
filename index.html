@@ -276,6 +276,10 @@ const VAPID_PUBLIC = "";  /* ← 푸시 서버의 VAPID 공개키 (npx web-push 
 /* ★★★ 공유 시 보상형 광고로 수익화 — AdSense 퍼블리셔 ID를 넣으면 실제 광고, 비우면 데모 광고가 뜹니다. 광고차단/오프라인이면 자동으로 공유 잠금이 풀립니다 ★★★ */
 const ADSENSE_CLIENT = "";  /* ← "ca-pub-XXXXXXXXXXXXXXXX" (H5 Games Ads 승인 필요). 비우면 데모 광고 */
 const ADSENSE_BANNER_SLOT = "";  /* ← 디스플레이(배너) 광고 슬롯 ID. 비우면 '광고 자리' placeholder 표시 */
+/* ★★★ Google 인증 CMP(Privacy & messaging / Funding Choices) — EEA/UK 정식 GDPR 준수.
+   true이면 자체 쿠키배너 대신 Google 동의 메시지를 사용합니다(AdSense 콘솔 '개인정보 보호 및 메시지'에서 메시지 생성 필수).
+   ADSENSE_CLIENT가 설정돼야 작동합니다. ★★★ */
+const USE_GOOGLE_CMP = true;
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
 const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
@@ -901,11 +905,24 @@ function bannerAdHTML(){ if(ADSENSE_CLIENT&&ADSENSE_BANNER_SLOT)
     return `<div class="adslotbox"><div class="adlbl">광고 · AD</div><ins class="adsbygoogle" style="display:block" data-ad-client="${ADSENSE_CLIENT}" data-ad-slot="${ADSENSE_BANNER_SLOT}" data-ad-format="auto" data-full-width-responsive="true"></ins></div>`;
   return `<div class="adslotbox"><div class="adlbl">광고 · AD</div><div class="adph">🪧 배너 광고 자리<span style="font-size:11px">AdSense 승인·설정 후 자동으로 광고가 노출돼요</span></div></div>`; }
 function initBannerAds(){ if(!(ADSENSE_CLIENT&&ADSENSE_BANNER_SLOT)) return;
-  if(!consentDone()){ maybeShowConsent(); return; }   // 동의/거부 결정 전엔 광고 push 보류(GDPR)
+  if(!consentReady()){ maybeShowConsent(); return; }   // 동의 결정 전엔 광고 push 보류(GDPR)
   const inses=document.querySelectorAll("ins.adsbygoogle:not([data-done])"); if(!inses.length) return;
   loadAdSense().then(ok=>{ if(!ok) return; inses.forEach(ins=>{ if(ins.getAttribute("data-done")) return; ins.setAttribute("data-done","1"); try{ (window.adsbygoogle=window.adsbygoogle||[]).push({}); }catch(e){} }); }); }
 
-/* ----- 🍪 쿠키 동의(GDPR) · Google Consent Mode v2 ----- */
+/* ----- 🍪 쿠키 동의(GDPR) ----- */
+/* Google 인증 CMP(Funding Choices) 사용 시: Google 동의 메시지가 동의를 처리(Consent Mode 자동 연동),
+   자체 배너는 띄우지 않고 AdSense가 TCF 신호로 광고 게이팅을 맡는다. */
+function pubId(){ return ADSENSE_CLIENT ? ADSENSE_CLIENT.replace(/^ca-/,"") : ""; }   // ca-pub-XXXX → pub-XXXX
+function googleCMPActive(){ return !!(USE_GOOGLE_CMP && ADSENSE_CLIENT); }
+function initGoogleCMP(){ if(!googleCMPActive()) return;
+  if(document.getElementById("googlefc-loader")) return;
+  const s=document.createElement("script"); s.async=true; s.id="googlefc-loader";
+  s.src="https://fundingchoicesmessages.google.com/i/"+pubId()+"?ers=1"; document.head.appendChild(s);
+  (function signalGooglefcPresent(){ if(!window.frames["googlefcPresent"]){ if(document.body){ const f=document.createElement("iframe");
+    f.style="width:0;height:0;border:none;z-index:-1000;left:-1000px;top:-1000px;"; f.style.display="none"; f.name="googlefcPresent"; document.body.appendChild(f);
+  } else setTimeout(signalGooglefcPresent,0); } })(); }
+/* 광고 push 가능 여부: Google CMP면 AdSense가 동의를 관리하므로 통과, 아니면 자체 동의 완료 시 통과 */
+function consentReady(){ return googleCMPActive() || consentDone(); }
 function consentDone(){ try{ return !!localStorage.getItem("ds_consent"); }catch(e){ return false; } }
 function setConsent(g){ try{ localStorage.setItem("ds_consent",g?"granted":"denied"); }catch(e){}
   if(typeof gtag==="function") gtag("consent","update",{ad_storage:g?"granted":"denied",ad_user_data:g?"granted":"denied",ad_personalization:g?"granted":"denied",analytics_storage:g?"granted":"denied"});
@@ -913,8 +930,11 @@ function setConsent(g){ try{ localStorage.setItem("ds_consent",g?"granted":"deni
   const el=document.getElementById("consent"); if(el) el.classList.remove("on");
   initBannerAds();   // 결정 후에만 배너 노출
   toast(g?"동의 저장됨 · 맞춤형 광고가 적용돼요":"필수만 허용 · 비개인화 광고로 표시돼요"); }
-function maybeShowConsent(){ if(!ADSENSE_CLIENT) return; if(consentDone()) return; const el=document.getElementById("consent"); if(el) el.classList.add("on"); }
-function reopenConsent(){ try{ localStorage.removeItem("ds_consent"); }catch(e){} closeSheet(); const el=document.getElementById("consent"); if(el) el.classList.add("on"); }
+function maybeShowConsent(){ if(!ADSENSE_CLIENT) return; if(googleCMPActive()) return;   // Google CMP가 동의 UI를 처리
+  if(consentDone()) return; const el=document.getElementById("consent"); if(el) el.classList.add("on"); }
+function reopenConsent(){ closeSheet();
+  if(googleCMPActive()){ try{ window.googlefc=window.googlefc||{}; googlefc.callbackQueue=googlefc.callbackQueue||[]; googlefc.callbackQueue.push(()=>{ try{ googlefc.showRevocationMessage(); }catch(e){} }); }catch(e){} return; }   // Google 동의 메시지 재표시
+  try{ localStorage.removeItem("ds_consent"); }catch(e){} const el=document.getElementById("consent"); if(el) el.classList.add("on"); }
 function adsenseReward(onReward){ loadAdSense().then(ok=>{
   if(!ok||!window.adsbygoogle){ autoUnlock(onReward,"광고를 불러올 수 없어요"); return; }
   let settled=false; const finish=g=>{ if(settled) return; settled=true; clearTimeout(to); if(g) onReward(); };
@@ -1588,7 +1608,7 @@ function buildImport(){
   const off=Math.round((new Date(todayStr())-new Date(TRIP.startDate))/86400000); curDay=(off>=0&&off<daysCount())?off:0;
   screen=hasData?"home":"edit"; setTab(screen,false); render();
   const c=cityObj(); await ensureWeather(c.lat,c.lng); lastSkyMood=null; lastMascot=""; render();
-  scheduleAlarms(); syncPush(); maybeShowConsent();
+  scheduleAlarms(); syncPush(); initGoogleCMP(); maybeShowConsent();
   if(PENDING_SHARE) setTimeout(openImportShared,450);   // 공유받은 계획 그대로 가져오기 안내
 })();
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) rescheduleAlarmsSoon(); });
