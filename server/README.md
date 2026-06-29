@@ -37,11 +37,20 @@ const VAPID_PUBLIC = "<1)에서 만든 Public Key>";
 누르면 알림 권한을 받고 구독되며, 일정이 바뀔 때마다 서버로 자동 동기화됩니다.
 
 ## API
-| 메서드 | 경로 | 본문 | 설명 |
+| 메서드 | 경로 | 본문/쿼리 | 설명 |
 |---|---|---|---|
 | GET | `/` | – | 상태 확인 |
 | POST | `/subscribe` | `{ subscription, alarms:[{id,at,title,body}] }` | 구독 등록/갱신(전체 교체). `at`=절대시각(ms) |
 | POST | `/unsubscribe` | `{ endpoint }` | 구독 해지 |
+| GET | `/tourapi` | `?ep=locationBasedList2&mapX=..&mapY=..&radius=..&contentTypeId=..` | 한국관광공사 TourAPI 프록시(CORS 우회) |
+
+## TourAPI 프록시 (선택)
+data.go.kr(TourAPI)은 **CORS를 지원하지 않아** 브라우저에서 직접 호출할 수 없습니다.
+이 서버의 `/tourapi`가 대신 호출해 주며, **서비스키는 서버 환경변수에만** 두어 노출되지 않습니다.
+1. data.go.kr → 한국관광공사 TourAPI 활용신청 → **인코딩 서비스키** 발급.
+2. 서버 환경변수에 `TOURAPI_KEY=<서비스키>` 추가(재배포).
+3. 앱의 🔌 설정 또는 `index.html`의 `DEFAULT_TOURAPI_PROXY`에 `https://<배포주소>/tourapi` 입력.
+그러면 추천(맛집/놀거리)이 관광공사 공식 데이터+사진으로 채워집니다. (키 미설정 시 자동으로 Kakao/큐레이션으로 폴백)
 
 ## 참고 / 한계
 - **iOS**는 Safari에서 **홈 화면에 추가(PWA 설치)** 한 경우에만 Web Push가 동작합니다(iOS 16.4+). 일반 사파리 탭은 미지원.
