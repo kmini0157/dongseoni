@@ -1,16 +1,29 @@
 {
+  "id": "/dongseoni/",
   "name": "동선이 · 전국 여행 비서",
   "short_name": "동선이",
-  "description": "전국 여행 동선을 한 화면으로 — 날씨·맛집·이동까지",
+  "description": "전국 여행 동선을 한 화면으로 — 날씨·맛집·이동시간·최적 코스까지 자동으로.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#0a0e17",
   "theme_color": "#0a0e17",
   "lang": "ko",
+  "dir": "ltr",
+  "categories": ["travel", "navigation", "lifestyle"],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
   "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "apple-touch-icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }

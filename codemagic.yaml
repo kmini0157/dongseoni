@@ -1,0 +1,60 @@
+# 동선이 iOS 클라우드 빌드 (Codemagic) — 맥 없이 App Store 빌드/서명/업로드
+#
+# 흐름: PWABuilder iOS zip → 이 repo에 push(이 yaml 포함) → Codemagic이 클라우드 mac에서 빌드·서명·TestFlight 업로드
+#
+# 사전(사람이 직접):
+#  1) Apple Developer Program 가입($99/년)
+#  2) App Store Connect에서 앱 생성(번들ID io.github.kmini0157.dongseoni) → 숫자 Apple ID 확보
+#  3) App Store Connect → Users and Access → Integrations → App Store Connect API → + → 권한 App Manager
+#     → Download API Key(.p8, 1회만). Issuer ID / Key ID / .p8 기록.
+#  4) Codemagic → Team settings → Team integrations → Developer Portal → Add key
+#     : 이름·Issuer ID·Key ID 입력 + .p8 업로드. 그 '이름'을 아래 integrations 값에 사용.
+#  5) PWABuilder iOS zip을 풀어 실제 .xcodeproj 파일명과 공유 스킴(shared scheme) 이름 확인 → 아래 [채우기] 반영.
+#
+# ※ PWABuilder 셸은 CocoaPods/워크스페이스 없는 plain .xcodeproj → --project 사용.
+
+workflows:
+  ios-dongseoni:
+    name: 동선이 iOS (App Store)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: dongseoni-asc        # [채우기] Codemagic에 등록한 .p8 키 별칭
+    environment:
+      ios_signing:
+        distribution_type: app_store          # 배포용 자동 코드사이닝(인증서·프로파일 자동 생성)
+        bundle_identifier: io.github.kmini0157.dongseoni   # PWABuilder Package ID와 동일
+      vars:
+        XCODE_PROJECT: "App.xcodeproj"         # [채우기] zip 안 실제 .xcodeproj 이름
+        XCODE_SCHEME: "App"                     # [채우기] zip 안 공유 스킴 이름
+        APP_STORE_APPLE_ID: "0000000000"       # [채우기] App Store Connect 앱의 숫자 Apple ID
+      xcode: latest
+    scripts:
+      - name: 프로비저닝 프로필 적용(자동 서명)
+        script: xcode-project use-profiles
+      - name: 빌드 번호 자동 증가
+        script: |
+          cd "$CM_BUILD_DIR"
+          LATEST=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          agvtool new-version -all $(($LATEST + 1))
+      - name: IPA 빌드(배포용)
+        script: |
+          cd "$CM_BUILD_DIR"
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true            # 먼저 TestFlight(베타)로 — 실기기 검증
+        submit_to_app_store: false            # 정식 심사 제출은 검증 후 true로
+      email:
+        recipients:
+          - asdewkkm@linkidmail.com
+        notify:
+          success: true
+          failure: true
+
+# 팁: 프로젝트/스킴 이름이 불확실하면, 처음엔 Codemagic 워크플로 에디터(UI)로 프로젝트를 자동 감지시켜
+#     한 번 빌드한 뒤, 감지된 값을 위 [채우기]에 옮겨 yaml 빌드로 전환하는 것이 안전합니다.
