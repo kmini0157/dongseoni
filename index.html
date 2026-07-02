@@ -141,8 +141,8 @@ input,select,textarea{font-family:inherit}
 .tl-note{font-size:12px;color:var(--tx3);margin-top:3px;font-style:italic}
 .field{margin-bottom:12px}.field label{display:block;font-size:12px;color:var(--tx2);margin-bottom:6px}
 .input,select.input{width:100%;min-width:0;max-width:100%;height:44px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--tx);padding:0 13px;font-size:15px}
-input[type=date].input,input[type=time].input{display:block;-webkit-appearance:none;appearance:none;text-align:left}
-input[type=date].input::-webkit-date-and-time-value,input[type=time].input::-webkit-date-and-time-value{text-align:left;margin:0;padding:0}
+input[type=date].input,input[type=time].input{display:flex;align-items:center;-webkit-appearance:none;appearance:none;text-align:left}
+input[type=date].input::-webkit-date-and-time-value,input[type=time].input::-webkit-date-and-time-value{text-align:left;margin:0;padding:0;height:44px;line-height:44px}
 input.input::-webkit-calendar-picker-indicator{margin-left:auto;opacity:.5;filter:invert(.85);cursor:pointer}
 .suggest{position:absolute;left:0;right:0;top:100%;z-index:30;background:var(--card-s);border:1px solid var(--line2);border-radius:10px;margin-top:4px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.45)}
 .suggest:empty{display:none}
@@ -238,6 +238,7 @@ body.dnd-active{overscroll-behavior:contain}
 <nav class="tabbar" id="tabbar">
   <button data-screen="home" class="on"><span class="ic">🏠</span>홈</button>
   <button data-screen="timeline"><span class="ic">🗺️</span>타임라인</button>
+  <button data-screen="plan"><span class="ic">💡</span>구상</button>
   <button data-screen="edit"><span class="ic">✏️</span>편집</button>
 </nav>
 <script>
@@ -248,7 +249,7 @@ body.dnd-active{overscroll-behavior:contain}
 const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 JavaScript 키 (도메인 잠금) */
 const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
 const DEFAULT_TOUR  = "71e042381154b4346c64a75d139ceaab665d6174012adf26f2ddfbeefe6194ae";  /* ← 한국관광공사 TourAPI(data.go.kr). 도메인잠금 없음 — 쿼터(1,000/일) 도용 시 data.go.kr에서 재발급 후 교체 */
-const APP_VER = "2026-07-02f";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
+const APP_VER = "2026-07-03b";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
 const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
@@ -313,10 +314,10 @@ let celebrating=false, lastRealCelebIdx=-1, celebTimer=null, onbStep=0, onbDone=
 let KAKAO_KEY="", ODSAY_KEY="", TOUR_KEY="", kakaoReady=false, kakaoLoading=null;
 const ODCACHE={}, odPending={}, WXCACHE={}, RECCACHE={};
 try{ localStorage.removeItem("dongseoni_stars_v1"); }catch(e){}   /* 별점 스크래핑 제거: 이전 캐시(복제본) 정리 */
-let recSeq=0;
+let recSeq=0, recTarget="day";   /* 추천 담기 대상: "day"(편집·오늘 일정) | "wish"(구상 목록) — 시트 진입점에서 매번 설정 */
 let KMAP=null, OD_OK=null; const ALLCITY={}; let REGION_CITIES={};
 
-function blankTrip(){ return {v:3,dest:{city:"부산",region:"경남"},mode:"transit",startDate:todayStr(),nights:1,meal:{breakfast:"08:00",lunch:"12:00",dinner:"18:00"},arrival:null,days:[{start:"10:00",stay:null,places:[]},{start:"09:00",stay:null,places:[]}]}; }
+function blankTrip(){ return {v:3,dest:{city:"부산",region:"경남"},mode:"transit",startDate:todayStr(),nights:1,meal:{breakfast:"08:00",lunch:"12:00",dinner:"18:00"},mealOn:{breakfast:true,lunch:true,dinner:true},wish:[],arrival:null,days:[{start:"10:00",stay:null,places:[]},{start:"09:00",stay:null,places:[]}]}; }
 function toNum(v){ v=+v; return Number.isFinite(v)?v:0; }
 function cleanNode(o){ if(!o||typeof o!=="object") return o;
   if("lat" in o) o.lat=toNum(o.lat); if("lng" in o) o.lng=toNum(o.lng);
@@ -335,6 +336,8 @@ function ensureDays(t){ if(!t||typeof t!=="object") return t;
   t.days.forEach(d=>{ if(!d||typeof d!=="object") return; if(!Array.isArray(d.places)) d.places=[]; d.places=d.places.filter(pl=>pl&&typeof pl==="object"); d.places.forEach(pl=>{ cleanNode(pl); if(!TYPE_META[pl.type]) pl.type="see"; }); if(d.stay) cleanNode(d.stay); });
   if(t.arrival) cleanNode(t.arrival);
   if(t.meal && !t.meal.breakfast) t.meal.breakfast="08:00";
+  if(!t.mealOn||typeof t.mealOn!=="object") t.mealOn={breakfast:true,lunch:true,dinner:true};
+  if(!Array.isArray(t.wish)) t.wish=[]; else { t.wish=t.wish.filter(w=>w&&typeof w==="object").slice(0,60); t.wish.forEach(w=>{ cleanNode(w); if(!TYPE_META[w.type]) w.type="see"; }); }
   if(!t.startDate) t.startDate=todayStr();
   t.nights=Math.max(0,t.days.length-1);
   return t; }
@@ -416,7 +419,14 @@ function loadTrips(){
   const legacy=localStorage.getItem("dongseoni_trip"); if(legacy){ try{ const t=JSON.parse(legacy); if(t){ ACTIVE=uid(); TRIPS=[{id:ACTIVE,name:"내 여행",updatedAt:Date.now(),trip:t}]; writeTrips(); return; } }catch(e){} }
   TRIPS=[]; ACTIVE=""; }
 function persist(){ if(!TRIP) return; let e=activeEntry(); if(!e){ if(!ACTIVE) ACTIVE=uid(); e={id:ACTIVE,name:"내 여행",updatedAt:0,trip:TRIP}; TRIPS.push(e); } e.trip=TRIP; e.updatedAt=Date.now(); writeTrips(); }
-function save(){ if(!TRIP) return; persist(); try{ history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} }
+function save(){ if(!TRIP) return; persist(); try{ history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} updateBadge(); }
+/* 앱 아이콘 배지 = 오늘 남은 방문지 수 (설치된 PWA에서, Badging API 지원 기기만) */
+function updateBadge(){ try{ if(!("setAppBadge" in navigator)) return;
+  const off=Math.round((new Date(todayStr()+"T00:00:00")-new Date(TRIP.startDate+"T00:00:00"))/86400000);
+  if(off<0||off>=daysCount()){ navigator.clearAppBadge&&navigator.clearAppBadge(); return; }
+  const n=(TRIP.days[off].places||[]).filter(p=>!p.visitedAt).length;
+  if(n>0) navigator.setAppBadge(n); else navigator.clearAppBadge&&navigator.clearAppBadge();
+}catch(e){} }
 function hashTrip(){ const m=location.hash.match(/#t=(.+)$/); if(m){ const t=migrate(decodeTrip(m[1])); if(t&&Array.isArray(t.days)) return t; } return null; }
 function lsTrip(){ const e=activeEntry(); if(e){ const t=migrate(e.trip); if(t&&Array.isArray(t.days)) return t; } return null; }
 function load(){ return hashTrip()||lsTrip(); }
@@ -434,7 +444,7 @@ function openTrips(){ persist();
   openSheet(`<h3>내 여행</h3><p class="muted" style="margin-bottom:8px">탭하면 전환돼요. 현재 여행은 자동 저장됩니다.</p>${rows}<button class="btn primary" style="margin-top:12px" onclick="newTrip()">＋ 새 여행</button>`); }
 
 /* ---------- 끼니 ---------- */
-function effAnchor(p){ if(p.anchor) return p.anchor; if(p.meal&&TRIP.meal&&TRIP.meal[p.meal]) return TRIP.meal[p.meal]; return null; }
+function effAnchor(p){ if(p.anchor) return p.anchor; if(p.meal&&mealOn(p.meal)&&TRIP.meal&&TRIP.meal[p.meal]) return TRIP.meal[p.meal]; return null; }
 
 /* ---------- 이동시간(좌표 기반 + 부산보정 + ODsay) ---------- */
 function ck(n){ return (n.lat||0).toFixed(3)+","+(n.lng||0).toFixed(3); }
@@ -588,6 +598,7 @@ function render(){
   const hadWX=curWX();
   if(screen==="home") app.innerHTML=renderHome();
   else if(screen==="timeline"){ app.innerHTML=renderTimeline(); buildSky(skyMoodNow()); }
+  else if(screen==="plan"){ app.innerHTML=renderPlan(); buildSky(skyMoodNow()); }
   else { app.innerHTML=renderEdit(); buildSky(skyMoodNow()); }
   bindScreen(); finishEnter();
   const dc=dayCoords(curDay);
@@ -732,9 +743,9 @@ function renderEdit(){
     <div class="sec-title">여행 설정</div>
     <div class="field"><label>여행 시작일</label><input class="input" type="date" value="${TRIP.startDate}" onchange="setField('startDate',this.value)"></div>
     <div class="field"><label>기간</label><div class="stepper"><button onclick="setNights(-1)">−</button><span class="v">${TRIP.nights}박 ${TRIP.nights+1}일</span><button onclick="setNights(1)">＋</button></div></div>
-    <div class="row2"><div class="field"><label>아침 기본</label><input class="input" type="time" value="${TRIP.meal.breakfast||"08:00"}" onchange="setMeal('breakfast',this.value)"></div>
-      <div class="field"><label>점심 기본</label><input class="input" type="time" value="${TRIP.meal.lunch}" onchange="setMeal('lunch',this.value)"></div></div>
-    <div class="field"><label>저녁 기본</label><input class="input" type="time" value="${TRIP.meal.dinner}" onchange="setMeal('dinner',this.value)"></div>
+    ${["breakfast","lunch","dinner"].map(m=>`<div class="field"><label style="display:flex;justify-content:space-between;align-items:center">${mealLabel(m)} 기본
+        <button class="ck${mealOn(m)?" on":""}" style="padding:4px 11px;font-size:12px" onclick="toggleMealOn('${m}')">${mealOn(m)?"먹어요":"안 먹어요"}</button></label>
+      <input class="input" type="time" value="${TRIP.meal[m]||(m==="breakfast"?"08:00":m==="lunch"?"12:00":"18:00")}" onchange="setMeal('${m}',this.value)" ${mealOn(m)?"":"disabled style=opacity:.35"}></div>`).join("")}
     <div class="field"><label>막차 마지노선 <span class="muted">(이 시각보다 마지막 일정이 늦으면 경고)</span></label><input class="input" type="time" value="${TRIP.lastBack||"23:30"}" onchange="setField('lastBack',this.value)"></div>
     ${curDay===0?`<div class="field"><label>도착 (첫날)</label>
       <input class="input" placeholder="예: 김해공항 / 부산역 / 서울역" value="${TRIP.arrival?escapeHtml(TRIP.arrival.name):""}" onchange="setArrival('name',this.value)">
@@ -754,8 +765,8 @@ function renderEdit(){
     <div class="row2"><div class="field"><label>종류</label><select class="input" id="nType"><option value="see">가고싶은곳</option><option value="eat">맛집</option><option value="stay">숙소(오늘 밤)</option></select></div>
       <div class="field"><label>권역</label><select class="input" id="nRegion">${areaKeys().map(r=>`<option>${r}</option>`).join("")}</select></div></div>
     <div id="eatFields" class="hide">
-      <div class="field"><label>끼니 <span class="muted">(아침 ${TRIP.meal.breakfast||"08:00"} / 점심 ${TRIP.meal.lunch} / 저녁 ${TRIP.meal.dinner} 기본)</span></label>
-        <div class="checks" id="ckMeal"><button class="ck" data-meal="breakfast">아침</button><button class="ck" data-meal="lunch">점심</button><button class="ck" data-meal="dinner">저녁</button><button class="ck on" data-meal="">지정 안 함</button></div></div>
+      <div class="field"><label>끼니 <span class="muted">(${["breakfast","lunch","dinner"].filter(mealOn).map(m=>mealLabel(m)+" "+mealTime(m)).join(" / ")||"모두 건너뜀"} 기본)</span></label>
+        <div class="checks" id="ckMeal">${["breakfast","lunch","dinner"].filter(mealOn).map(m=>`<button class="ck" data-meal="${m}">${mealLabel(m)}</button>`).join("")}<button class="ck on" data-meal="">지정 안 함</button></div></div>
       <div class="field"><label>맛집 운영정보 <span class="muted">(직접 확인해 입력)</span></label><div class="checks" id="ckClosed">${["일","월","화","수","목","금","토"].map((d,i)=>`<button class="ck" data-d="${i}">${d} 휴무</button>`).join("")}</div></div>
       <div class="row2"><div class="field"><label>브레이크 시작</label><input class="input" type="time" id="nBrk0"></div><div class="field"><label>브레이크 끝</label><input class="input" type="time" id="nBrk1"></div></div>
       <div class="row2"><div class="field"><label>라스트오더</label><input class="input" type="time" id="nLO"></div><div class="field"><label>목표시각(선택)</label><input class="input" type="time" id="nAnchor"></div></div>
@@ -814,6 +825,7 @@ function snapshot(){ try{ UNDO=JSON.parse(JSON.stringify(TRIP)); }catch(e){ UNDO
 function undoLast(){ if(UNDO){ TRIP=UNDO; UNDO=null; save(); render(); toast("되돌렸어요"); } }
 function setField(k,v){ TRIP[k]=v; save(); render(); }
 function setMeal(which,v){ TRIP.meal[which]=v; save(); render(); }
+function toggleMealOn(m){ if(!TRIP.mealOn) TRIP.mealOn={breakfast:true,lunch:true,dinner:true}; TRIP.mealOn[m]=!mealOn(m); save(); render(); toast(mealLabel(m)+(mealOn(m)?" 챙겨요":" 건너뛰어요")); }
 function setDayStart(v){ TRIP.days[curDay].start=v; save(); render(); }
 function setArrival(field,v){ if(!TRIP.arrival) TRIP.arrival={name:"",area:areaKeys()[0],time:"10:30",city:dest()}; TRIP.arrival[field]=v;
   const c=areaCoords(TRIP.arrival.area); TRIP.arrival.lat=c.lat; TRIP.arrival.lng=c.lng; TRIP.arrival.city=dest();
@@ -856,7 +868,8 @@ function autoCluster(){ const arr=TRIP.days[curDay].places, order=[],byR={}; arr
 /* ✨ 최적 코스: 맛집을 끼니시간에 자동배정 + 볼거리를 가까운 순으로 끼워넣어 동선 최소화(끼니 시간순 보존 2-opt) */
 const MO={breakfast:0,lunch:1,dinner:2};
 function mealLabel(m){ return m==="breakfast"?"아침":m==="lunch"?"점심":m==="dinner"?"저녁":""; }
-function mealTime(m){ return (TRIP.meal&&TRIP.meal[m])||(m==="breakfast"?"08:00":m==="lunch"?"12:00":"18:00"); }
+function mealOn(m){ return !(TRIP.mealOn&&TRIP.mealOn[m]===false); }
+function mealTime(m){ if(!mealOn(m)) return null; return (TRIP.meal&&TRIP.meal[m])||(m==="breakfast"?"08:00":m==="lunch"?"12:00":"18:00"); }
 function _d(a,b){ return (a&&b&&a.lat&&b.lat)?haversine(a,b):0; }
 function routeCost(route,start,end){ let c=0,prev=start; for(const p of route){ if(prev)c+=_d(prev,p); prev=p; } if(end&&prev)c+=_d(prev,end); return c; }
 function nnRoute(items,start){ const left=items.slice(),out=[]; let cur=start; if(!cur){ cur=left.shift(); if(cur)out.push(cur); } while(left.length){ let bi=0,bd=Infinity; for(let i=0;i<left.length;i++){ const d=_d(cur,left[i]); if(d<bd){bd=d;bi=i;} } cur=left.splice(bi,1)[0]; out.push(cur); } return out; }
@@ -867,17 +880,19 @@ function orderSeg(items,from,to){ let r=nnRoute(items,from);   // 양 끝(끼니
         if(routeCost(cand,from,to)<routeCost(r,from,to)-1e-9){ r=cand; improved=true; } } } }
   return r; }
 function autoAssignMeals(places){ const eats=places.filter(p=>p.type==="eat"); const taken={}; eats.forEach(p=>{ if(p.meal)taken[p.meal]=true; });
-  const untag=eats.filter(p=>!p.meal&&!p.anchor); const pri=["lunch","dinner","breakfast"].filter(s=>!taken[s]);
+  const untag=eats.filter(p=>!p.meal&&!p.anchor); const pri=["lunch","dinner","breakfast"].filter(s=>!taken[s]&&mealOn(s));
   untag.forEach((p,i)=>{ if(i<pri.length) p.meal=pri[i]; }); }
-function optimizeDay(){
-  const day=TRIP.days[curDay]; if(!day) return; if(day.places.length<2){ toast("장소를 2개 이상 넣어야 정리해요"); return; }
-  snapshot(); autoAssignMeals(day.places);
+function optimizeDay(di,silent){
+  const dd=(di==null)?curDay:di;
+  const day=TRIP.days[dd]; if(!day) return; if(day.places.length<2){ if(!silent) toast("장소를 2개 이상 넣어야 정리해요"); return; }
+  if(!silent) snapshot();
+  autoAssignMeals(day.places);
   const withC=day.places.filter(p=>p.lat), noC=day.places.filter(p=>!p.lat);
-  const start=(curDay>0&&TRIP.days[curDay-1].stay&&TRIP.days[curDay-1].stay.lat)?TRIP.days[curDay-1].stay:((curDay===0&&TRIP.arrival&&TRIP.arrival.lat)?TRIP.arrival:null);
+  const start=(dd>0&&TRIP.days[dd-1].stay&&TRIP.days[dd-1].stay.lat)?TRIP.days[dd-1].stay:((dd===0&&TRIP.arrival&&TRIP.arrival.lat)?TRIP.arrival:null);
   const end=(day.stay&&day.stay.lat)?day.stay:null;
   const dayStart=hmToMin(day.start)??600;
-  const anchored=withC.filter(p=>p.type==="eat"&&p.meal&&MO[p.meal]!=null).map(p=>({p,t:hmToMin(mealTime(p.meal))||0})).sort((a,b)=>a.t-b.t);
-  const sees=withC.filter(p=>!(p.type==="eat"&&p.meal&&MO[p.meal]!=null));
+  const anchored=withC.filter(p=>p.type==="eat"&&p.meal&&MO[p.meal]!=null&&mealTime(p.meal)!=null).map(p=>({p,t:hmToMin(mealTime(p.meal))||0})).sort((a,b)=>a.t-b.t);
+  const sees=withC.filter(p=>!(p.type==="eat"&&p.meal&&MO[p.meal]!=null&&mealTime(p.meal)!=null));
   let route;
   if(!anchored.length){ route=orderSeg(withC,start,end); }   // 맛집 없으면 동선 최소(NN+2opt)
   else {
@@ -896,8 +911,75 @@ function optimizeDay(){
     for(let k=0;k<=n;k++){ const sg=segs[k]; const from=sg.from||(route.length?route[route.length-1]:sg.refPrev); const to=(k<n?anchored[k].p:end); route=route.concat(orderSeg(sg.items,from,to)); if(k<n) route.push(anchored[k].p); }
   }
   day.places=route.concat(noC);
-  save(); render(); toast("최적 코스로 정리 — 맛집은 끼니시간, 볼거리는 가까운 순"); confetti(); }
+  save(); if(!silent){ render(); toast("최적 코스로 정리 — 맛집은 끼니시간, 볼거리는 가까운 순"); confetti(); } }
 function resetTrip(){ if(confirm("모든 입력을 지울까요?")){ snapshot(); TRIP=blankTrip(); curDay=0; save(); screen="edit"; render(); toast("초기화됨", true); } }
+
+/* ── 구상 탭 — 가고 싶은 곳을 순서 없이 담아두면, 가까운 곳끼리 묶어(k-means) 일자별로 배분 후 각 날을 최적 정렬 ── */
+function renderPlan(){ const wish=TRIP.wish||[];
+  return `${destBar()}<div class="topbar"><h2>여행 구상</h2><button class="icbtn" onclick="shareLink()" title="공유">🔗</button></div><div class="wrap">
+    <p class="muted" style="margin:2px 2px 12px">가고 싶은 곳을 순서 상관없이 담아두세요. 가까운 곳끼리 묶어 <b style="color:var(--tx2)">${daysCount()}일 코스</b>로 한 번에 짜 드려요.</p>
+    <div class="field" style="position:relative"><label>장소 담기 <span class="muted">${KAKAO_KEY?"· 입력하면 카카오 자동완성":""}</span></label>
+      <input class="input" id="wName" placeholder="예: 감천문화마을" autocomplete="off" oninput="wishSearch(this.value)" onkeydown="if(event.key==='Enter')addWish()"><div id="wSuggest" class="suggest"></div></div>
+    <button class="btn line" onclick="addWish()">담기</button>
+    <div class="sec-title">추천 받기</div>
+    <div class="recbtn"><button onclick="openMustVisit('wish')" style="background:linear-gradient(135deg,#ffb84d,#ff8a3d);border-color:#ff8a3d;color:#1a1205;font-weight:800">${escapeHtml(dest())} 꼭 가야 할 곳 한 번에 담기</button></div>
+    <div class="recbtn"><button onclick="openRec('eat','wish')">맛집 추천</button><button onclick="openRec('play','wish')">놀거리·볼거리</button></div>
+    ${seedOf().length?`<div class="sec-title">빠른 담기</div><div class="quick">${seedOf().map((s,i)=>`<button onclick="wishSeed(${i})">＋ ${escapeHtml(s[0])}</button>`).join("")}</div>`:""}
+    <div class="sec-title">담아둔 곳 (${wish.length})</div>
+    ${wish.length?wish.map((w,i)=>`<div class="poi"><div class="nm"><b>${escapeHtml(w.name)}</b><span>${escapeHtml(w.area||"")}${w.type==="eat"?" · 맛집":""}</span></div><button class="ck" onclick="removeWish(${i})">삭제</button></div>`).join(""):`<p class="muted">아직 없어요. 블로그·SNS에서 본 곳들을 떠오르는 대로 담아두면 돼요.</p>`}
+    ${wish.length>=2?`<button class="btn primary" style="margin-top:12px" onclick="distributeWish()">가까운 곳끼리 묶어 ${daysCount()}일 코스 만들기</button>
+    <p class="muted" style="margin:6px 2px 0;font-size:12px">위치가 가까운 곳끼리 같은 날로 묶고, 날마다 맛집은 끼니 시간에·볼거리는 이동 최소로 정렬해요. 기존 일정 뒤에 더해집니다.</p>`:""}
+  </div>`; }
+let WSUG=[], WSEL=null, wsugT=null;
+function wishSearch(q){ q=(q||"").trim(); if(WSEL&&WSEL.name!==q) WSEL=null; clearTimeout(wsugT);
+  if(!KAKAO_KEY||q.length<2){ setHTML("wSuggest",""); WSUG=[]; return; }
+  wsugT=setTimeout(()=>{ loadKakao().then(ok=>{ if(!ok) return; const c=cityObj(); const ps=new kakao.maps.services.Places();
+    ps.keywordSearch(q,(data,st)=>{ if(st!==kakao.maps.services.Status.OK){ setHTML("wSuggest",""); return; }
+      WSUG=data.slice(0,6).map(d=>({name:d.place_name,addr:d.road_address_name||d.address_name,x:+d.x,y:+d.y,cat:d.category_group_code}));
+      setHTML("wSuggest",WSUG.map((s,i)=>`<div class="si" onclick="pickWish(${i})"><b>${escapeHtml(s.name)}</b><span>${escapeHtml(s.addr||"")}</span></div>`).join(""));
+    },{location:new kakao.maps.LatLng(c.lat,c.lng),radius:20000,size:6,sort:kakao.maps.services.SortBy.ACCURACY}); }); },250); }
+function pickWish(i){ const s=WSUG[i]; if(!s) return; WSEL=s; const el=document.getElementById("wName"); if(el) el.value=s.name; setHTML("wSuggest",""); }
+function addWish(){ const el=document.getElementById("wName"); const name=(el?el.value:"").trim(); if(!name){ toast("이름을 입력하세요"); return; }
+  if(!TRIP.wish) TRIP.wish=[];
+  if(TRIP.wish.length>=60){ toast("60곳까지 담을 수 있어요"); return; }
+  let w;
+  if(WSEL&&WSEL.name===name){ const type=(WSEL.cat==="FD6"||WSEL.cat==="CE7")?"eat":"see"; w={id:uid(),name,type,lat:WSEL.y,lng:WSEL.x,area:nearestArea(WSEL.y,WSEL.x),city:dest()}; }
+  else { const type=guessType(name); const a=areaKeys()[0]; const c=areaCoords(a); w={id:uid(),name,type,lat:c.lat,lng:c.lng,area:a,city:dest()}; }   /* 미선택 자유입력 → 도시 중심 폴백 */
+  TRIP.wish.push(w); WSEL=null; save(); render(); toast(name+" 담김"); }
+function removeWish(i){ if(TRIP.wish){ TRIP.wish.splice(i,1); save(); render(); } }
+function wishSeed(i){ const s=seedOf()[i]; if(!s) return; const c=areaCoords(s[2]);
+  if(pushWish({id:uid(),name:s[0],type:s[1]==="eat"?"eat":"see",lat:c.lat,lng:c.lng,area:s[2],city:dest()})) toast(s[0]+" → 구상에 담김"); }
+function wishToPlace(w){ const type=TYPE_META[w.type]?w.type:"see";
+  return {id:uid(),name:w.name,type,area:w.area||(w.lat?nearestArea(w.lat,w.lng):areaKeys()[0]),city:w.city||dest(),lat:w.lat,lng:w.lng,indoor:false,meal:null,hours:{},dur:TYPE_META[type].dur}; }
+function distributeWish(){
+  const wish=(TRIP.wish||[]).slice(); if(wish.length<2){ toast("2곳 이상 담아주세요"); return; }
+  snapshot();
+  const pts=wish.filter(w=>w.lat&&w.lng), noC=wish.filter(w=>!w.lat||!w.lng);
+  const k=Math.max(1,Math.min(daysCount(),pts.length));
+  /* k-means: farthest-point 시드 → 8회 반복 → 하루 정원 밸런싱 */
+  const seeds=[pts[0]]; while(seeds.length<k){ let best=null,bd=-1; pts.forEach(p=>{ const d=Math.min(...seeds.map(c=>_d(p,c))); if(d>bd){bd=d;best=p;} }); seeds.push(best); }
+  let C=seeds.map(c=>({lat:c.lat,lng:c.lng})), asg=new Array(pts.length).fill(0);
+  for(let it=0;it<8;it++){
+    pts.forEach((p,i)=>{ let bi=0,bd=1e18; C.forEach((c,ci)=>{ const d=_d(p,c); if(d<bd){bd=d;bi=ci;} }); asg[i]=bi; });
+    C=C.map((c,ci)=>{ const g=pts.filter((p,i)=>asg[i]===ci); return g.length?{lat:g.reduce((s,p)=>s+p.lat,0)/g.length,lng:g.reduce((s,p)=>s+p.lng,0)/g.length}:c; });
+  }
+  let groups=C.map((c,ci)=>pts.filter((p,i)=>asg[i]===ci));
+  const cap=Math.ceil(pts.length/k)+1; let guard=0;
+  while(guard++<80){ const oi=groups.findIndex(g=>g.length>cap); if(oi<0) break;
+    const g=groups[oi]; let fi=0,fd=-1; g.forEach((p,i)=>{ const d=_d(p,C[oi]); if(d>fd){fd=d;fi=i;} });
+    const p=g.splice(fi,1)[0]; let bi=-1,bd=1e18;
+    groups.forEach((g2,ci)=>{ if(ci!==oi&&g2.length<cap){ const d=_d(p,C[ci]); if(d<bd){bd=d;bi=ci;} } });
+    if(bi<0){ g.push(p); break; } groups[bi].push(p); }
+  groups=groups.filter(g=>g.length);
+  /* 클러스터 방문 순서: 도착지(없으면 도시 중심)에서 가까운 순 체인 */
+  const cent=g=>({lat:g.reduce((s,p)=>s+p.lat,0)/g.length,lng:g.reduce((s,p)=>s+p.lng,0)/g.length});
+  let cur=(TRIP.arrival&&TRIP.arrival.lat)?TRIP.arrival:cityObj(); const left=groups.slice(), ordered=[];
+  while(left.length){ let bi=0,bd=1e18; left.forEach((g,i)=>{ const d=_d(cent(g),cur); if(d<bd){bd=d;bi=i;} }); const g=left.splice(bi,1)[0]; ordered.push(g); cur=cent(g); }
+  ordered.forEach((g,di)=>{ const day=TRIP.days[Math.min(di,daysCount()-1)]; g.forEach(w=>day.places.push(wishToPlace(w))); });
+  noC.forEach(w=>TRIP.days[0].places.push(wishToPlace(w)));
+  TRIP.wish=[];
+  for(let di=0;di<daysCount();di++) optimizeDay(di,true);   /* 각 날: 끼니 앵커 + 동선 최소 정렬 */
+  save(); curDay=0; setTab("timeline"); toast(wish.length+"곳을 "+ordered.length+"일로 나눠 코스를 짰어요", true); confetti(); }
 
 /* ----- 여행지(지도) 선택 ----- */
 /* 지도 색·클릭·라벨은 SIDO2REGION(9개 도, 남/북 분리) 사용 */
@@ -978,10 +1060,11 @@ function renderMustList(list){
 function addMustVisit(){ const list=MVLIST||[]; let n=0; snapshot();
   list.forEach((p,i)=>{ const cb=document.getElementById("mv_"+i); if(cb&&!cb.checked) return;
     const coords=(p.x&&p.y)?{lat:+p.y,lng:+p.x}:null; const area=coords?nearestArea(coords.lat,coords.lng):(p.area||areaKeys()[0]);
+    if(recTarget==="wish"){ if(pushWish({id:uid(),name:p.name,type:"see",lat:coords?coords.lat:areaCoords(area).lat,lng:coords?coords.lng:areaCoords(area).lng,area,city:dest()})) n++; return; }
     TRIP.days[curDay].places.push(mkPlace(p.name,"see",area,false,coords?{lat:coords.lat,lng:coords.lng}:null)); n++; });
-  save(); closeSheet(); render(); toast(n+"곳을 Day "+(curDay+1)+"에 담았어요"); if(n) confetti(); }
-function openMustVisit(){ const city=dest();
-  openSheet(`<h3>${escapeHtml(city)} 필수 코스</h3><p class="muted" style="margin-bottom:8px">${TOUR_KEY?"관광공사 추천 명소예요.":KAKAO_KEY?"인기·추천순 유명 명소예요.":"큐레이션 명소예요."} 담을 곳만 체크하고 추가하세요.</p><div id="mvList"><p class="muted">불러오는 중…</p></div>`);
+  save(); closeSheet(); render(); toast(n+(recTarget==="wish"?"곳을 구상에 담았어요":"곳을 Day "+(curDay+1)+"에 담았어요")); if(n) confetti(); }
+function openMustVisit(tgt){ recTarget=tgt||"day"; const city=dest();
+  openSheet(`<h3>${escapeHtml(city)} 필수 코스</h3><p class="muted" style="margin-bottom:8px">${TOUR_KEY?"관광공사 추천 명소예요.":KAKAO_KEY?"인기·추천순 유명 명소예요.":"큐레이션 명소예요."} 담을 곳만 체크하고 추가하세요${recTarget==="wish"?" — 구상 목록으로 들어가요":""}.</p><div id="mvList"><p class="muted">불러오는 중…</p></div>`);
   const myReq=++recSeq;
   if(TOUR_KEY){ const c=cityObj();
     tourSee(c.lat,c.lng,20000).then(list=>{ if(myReq!==recSeq) return;
@@ -999,14 +1082,15 @@ function mustVisitKakao(city,myReq){
     });
   });
 }
-function openRec(kind){ const regs=areaKeys();
+function openRec(kind,tgt){ recTarget=tgt||"day"; const regs=areaKeys();
+  const dst=recTarget==="wish"?"구상 목록에 담겨요":`Day ${curDay+1}에 추가할 수 있어요`;
   const head=`<h3>${kind==="eat"?"맛집 추천":"놀거리·볼거리 추천"} · ${escapeHtml(dest())}</h3>`;
   if(regs.length<=1){ const r=regs[0]||(dest()+" 시내");
-    openSheet(`${head}<p class="muted" style="margin-bottom:10px">${escapeHtml(dest())} 중심 · ${kind!=="eat"?(KAKAO_KEY?"인기·추천순":TOUR_KEY?"관광공사":"큐레이션"):(KAKAO_KEY?"Kakao 실시간":"큐레이션")} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p><div id="recList"></div>`);
+    openSheet(`${head}<p class="muted" style="margin-bottom:10px">${escapeHtml(dest())} 중심 · ${dst} · ${kind!=="eat"?(KAKAO_KEY?"인기·추천순":TOUR_KEY?"관광공사":"큐레이션"):(KAKAO_KEY?"Kakao 실시간":"큐레이션")} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p><div id="recList"></div>`);
     showRec(r,kind); return; }
   const opts=regs.map(r=>`<button onclick="showRec('${jsStr(r)}','${kind}')">${escapeHtml(r)}</button>`).join("");
   openSheet(`${head}
-    <p class="muted" style="margin-bottom:10px">권역을 고르면 Day ${curDay+1}에 추가할 수 있어요. ${kind!=="eat"?(KAKAO_KEY?"인기·추천순":TOUR_KEY?"관광공사":"큐레이션"):(KAKAO_KEY?"Kakao 실시간":"큐레이션")} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p>
+    <p class="muted" style="margin-bottom:10px">권역을 고르면 ${dst}. ${kind!=="eat"?(KAKAO_KEY?"인기·추천순":TOUR_KEY?"관광공사":"큐레이션"):(KAKAO_KEY?"Kakao 실시간":"큐레이션")} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p>
     <div class="quick" style="margin-bottom:6px">${opts}</div><div id="recList"></div>`); }
 /* 🏞️ 한국관광공사 TourAPI(KorService2) — 놀거리·명소 공식 데이터(사진·소개). 브라우저 직접호출 CORS OK */
 function tourTypeLabel(c){ return ({12:"관광지",14:"문화시설",15:"축제·공연",25:"여행코스",28:"레포츠",32:"숙박",38:"쇼핑",39:"음식점"})[c]||"관광"; }
@@ -1114,7 +1198,14 @@ function curatedHtml(region,kind,t){ const seed=seedOf().filter(s=>s[2]===region
     (seed.length?seed.map(s=>`<div class="poi"><div class="nm"><b>${escapeHtml(s[0])}</b><span>${escapeHtml(region)}</span></div>
       <button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(s[0])}')">지도</button><button class="add" onclick="addRec('${jsStr(s[0])}','${t}','${jsStr(region)}')">＋추가</button></div>`).join(""):`<p class="muted">이 권역 큐레이션이 적어요. Kakao 키를 등록하면 실시간으로 채워져요.</p>`); }
 function curatedRec(region,kind,t){ setHTML("recList", curatedHtml(region,kind,t)); }
-function addRec(name,type,area,lat,lng){ TRIP.days[curDay].places.push(mkPlace(name,type,area,false,(lat&&lng)?{lat:+lat,lng:+lng}:null)); save(); toast(name+" → Day "+(curDay+1)+" 추가"); }
+function pushWish(w){ if(!TRIP.wish) TRIP.wish=[];
+  if(TRIP.wish.length>=60){ toast("60곳까지 담을 수 있어요"); return false; }
+  if(TRIP.wish.some(x=>x.name===w.name)){ toast("이미 담겨 있어요"); return false; }
+  TRIP.wish.push(w); save(); if(screen==="plan") render(); return true; }   /* 시트는 #app 밖 오버레이라 뒤 화면만 갱신됨 */
+function addRec(name,type,area,lat,lng){
+  if(recTarget==="wish"){ const g=(lat&&lng)?{lat:+lat,lng:+lng}:areaCoords(area);
+    if(pushWish({id:uid(),name,type:type==="eat"?"eat":"see",lat:g.lat,lng:g.lng,area,city:dest()})) toast(name+" → 구상에 담김"); return; }
+  TRIP.days[curDay].places.push(mkPlace(name,type,area,false,(lat&&lng)?{lat:+lat,lng:+lng}:null)); save(); toast(name+" → Day "+(curDay+1)+" 추가"); }
 
 /* 일정 시각 조정 */
 let teDurCur=60;
@@ -1299,12 +1390,15 @@ function arriveDetected(s){ const p=s.place; if(!p||p.visitedAt) return; p.visit
   try{ if(navigator.vibrate) navigator.vibrate([200,120,200]); }catch(e){}
   try{ if(window.Notification&&Notification.permission==="granted") new Notification("동선이",{body:p.name+" 도착 — 별점·메모를 남겨보세요",icon:"icon-192.png",tag:"arrive"}); }catch(e){}
   toast(p.name+" 도착 기록됨"); flashCheck(); if(screen==="home") render(); }
+let wakeLock=null;
+async function wlAcquire(){ try{ if("wakeLock" in navigator){ wakeLock=await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release",()=>{ wakeLock=null; }); } }catch(e){} }   /* 감지 중 화면 유지(Screen Wake Lock) */
+function wlRelease(){ try{ if(wakeLock) wakeLock.release(); }catch(e){} wakeLock=null; }
 function geoStart(silent){ if(geoWatch!=null||!navigator.geolocation) return;
   try{ if(window.Notification&&Notification.permission==="default") Notification.requestPermission(); }catch(e){}
-  geoNearN=0;
+  geoNearN=0; wlAcquire();
   geoWatch=navigator.geolocation.watchPosition(geoTick,()=>{ geoStop(); localStorage.removeItem("dongseoni_geo"); if(!silent) toast("위치를 가져올 수 없어요 — 권한을 확인하세요"); if(screen==="home") render(); },{enableHighAccuracy:true,maximumAge:15000,timeout:20000});
-  localStorage.setItem("dongseoni_geo","1"); if(!silent) toast("도착 자동 감지 켜짐 — 화면이 켜져 있는 동안 동작해요"); }
-function geoStop(){ if(geoWatch!=null){ try{ navigator.geolocation.clearWatch(geoWatch); }catch(e){} geoWatch=null; } }
+  localStorage.setItem("dongseoni_geo","1"); if(!silent) toast("도착 자동 감지 켜짐 — 화면을 켜둔 채 유지해 드려요"); }
+function geoStop(){ if(geoWatch!=null){ try{ navigator.geolocation.clearWatch(geoWatch); }catch(e){} geoWatch=null; } wlRelease(); }
 function toggleGeo(){ if(geoWatch!=null){ geoStop(); localStorage.removeItem("dongseoni_geo"); toast("도착 자동 감지 꺼짐"); } else geoStart(false); if(screen==="home") render(); }
 document.addEventListener("visibilitychange",()=>{ if(document.hidden){ if(geoWatch!=null){ geoStop(); geoPaused=true; } } else if(geoPaused){ geoPaused=false; geoStart(true); } });   /* 숨김 시 배터리 절약 */
 try{ if(localStorage.getItem("dongseoni_geo")==="1"&&navigator.permissions&&navigator.geolocation){ navigator.permissions.query({name:"geolocation"}).then(st=>{ if(st.state==="granted"){ geoStart(true); if(screen==="home") render(); } }).catch(()=>{}); } }catch(e){}   /* 이전에 켰고 권한 있으면 조용히 재개 */
@@ -1590,6 +1684,7 @@ function buildImport(){
 
 /* 부트 */
 (async function init(){
+  try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist(); }catch(e){}   /* 저장소 영속화 요청 — iOS/크롬의 미사용 저장소 퇴출로부터 여행 데이터 보호 */
   loadTrips();
   const _share=handleShareTarget();   /* OS 공유시트로 들어온 텍스트·링크(부팅 쿼리) — 먼저 흡수하고 URL 정리 */
   const _inc=hashTrip(), _mine=lsTrip();

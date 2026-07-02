@@ -13,6 +13,7 @@
   "lang": "ko",
   "dir": "ltr",
   "categories": ["travel", "navigation", "lifestyle"],
+  "launch_handler": { "client_mode": "navigate-existing" },
   "share_target": {
     "action": "./",
     "method": "GET",
