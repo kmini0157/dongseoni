@@ -249,7 +249,7 @@ body.dnd-active{overscroll-behavior:contain}
 const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 JavaScript 키 (도메인 잠금) */
 const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
 const DEFAULT_TOUR  = "71e042381154b4346c64a75d139ceaab665d6174012adf26f2ddfbeefe6194ae";  /* ← 한국관광공사 TourAPI(data.go.kr). 도메인잠금 없음 — 쿼터(1,000/일) 도용 시 data.go.kr에서 재발급 후 교체 */
-const APP_VER = "2026-07-03b";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
+const APP_VER = "2026-07-03c";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
 const REGIONCOL={"수도권":"#3f74c8","강원":"#2f9e8f","충북":"#b88a3a","충남":"#caa23f","전북":"#8a5fc0","전남":"#b06fd0","경북":"#c0556f","경남":"#d47089","제주":"#3f9ec0"};
@@ -1054,7 +1054,7 @@ function fetchMustVisit(city){
 }
 function renderMustList(list){
   setHTML("mvList", list.map((p,i)=>{
-    return `<div class="poi"><input type="checkbox" ${i<6?"checked":""} id="mv_${i}" style="width:20px;height:20px;flex:none;accent-color:var(--accent)"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat||"명소")}</span></div></div>`;
+    return `<div class="poi"><input type="checkbox" ${i<6?"checked":""} id="mv_${i}" style="width:20px;height:20px;flex:none;accent-color:var(--accent)"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat||"명소")}${p.period?` · ${escapeHtml(p.period)}`:""}</span></div></div>`;
   }).join("") + `<button class="btn primary" style="margin-top:12px" onclick="addMustVisit()">＋ 체크한 곳 담기</button>`);
 }
 function addMustVisit(){ const list=MVLIST||[]; let n=0; snapshot();
@@ -1063,15 +1063,31 @@ function addMustVisit(){ const list=MVLIST||[]; let n=0; snapshot();
     if(recTarget==="wish"){ if(pushWish({id:uid(),name:p.name,type:"see",lat:coords?coords.lat:areaCoords(area).lat,lng:coords?coords.lng:areaCoords(area).lng,area,city:dest()})) n++; return; }
     TRIP.days[curDay].places.push(mkPlace(p.name,"see",area,false,coords?{lat:coords.lat,lng:coords.lng}:null)); n++; });
   save(); closeSheet(); render(); toast(n+(recTarget==="wish"?"곳을 구상에 담았어요":"곳을 Day "+(curDay+1)+"에 담았어요")); if(n) confetti(); }
-function openMustVisit(tgt){ recTarget=tgt||"day"; const city=dest();
-  openSheet(`<h3>${escapeHtml(city)} 필수 코스</h3><p class="muted" style="margin-bottom:8px">${TOUR_KEY?"관광공사 추천 명소예요.":KAKAO_KEY?"인기·추천순 유명 명소예요.":"큐레이션 명소예요."} 담을 곳만 체크하고 추가하세요${recTarget==="wish"?" — 구상 목록으로 들어가요":""}.</p><div id="mvList"><p class="muted">불러오는 중…</p></div>`);
-  const myReq=++recSeq;
-  if(TOUR_KEY){ const c=cityObj();
-    tourSee(c.lat,c.lng,20000).then(list=>{ if(myReq!==recSeq) return;
-      if(list.length){ MVLIST=list.map(p=>({name:p.name,cat:p.cat,x:p.x,y:p.y})); renderMustList(MVLIST); return; }
-      mustVisitKakao(city,myReq); }).catch(()=>{ if(myReq===recSeq) mustVisitKakao(city,myReq); });
+const MV_CATS=[["hot","명소"],["12","자연·관광"],["14","문화·역사"],["28","레포츠"],["38","쇼핑"],["39","맛집·카페"],["fest","지금 행사"]];
+let mvCat="hot";
+function openMustVisit(tgt){ recTarget=tgt||"day"; const city=dest(); mvCat="hot";
+  openSheet(`<h3>${escapeHtml(city)} 필수 코스</h3><p class="muted" style="margin-bottom:8px">${TOUR_KEY?"관광공사 공식 데이터예요.":KAKAO_KEY?"인기·추천순 유명 명소예요.":"큐레이션 명소예요."} 담을 곳만 체크하고 추가하세요${recTarget==="wish"?" — 구상 목록으로 들어가요":""}.</p>
+    ${TOUR_KEY?`<div class="checks" id="mvCats" style="margin-bottom:10px">${MV_CATS.map(c=>`<button class="ck${c[0]==="hot"?" on":""}" data-mc="${c[0]}" onclick="mvPick('${c[0]}')">${c[1]}</button>`).join("")}</div>`:""}
+    <div id="mvList"><p class="muted">불러오는 중…</p></div>`);
+  mvLoad();
+}
+function mvPick(c){ mvCat=c; document.querySelectorAll("#mvCats .ck").forEach(b=>b.classList.toggle("on",b.dataset.mc===c)); setHTML("mvList",`<p class="muted">불러오는 중…</p>`); mvLoad(); }
+function mvLoad(){
+  const city=dest(), myReq=++recSeq, c=cityObj();
+  if(!TOUR_KEY){ mustVisitKakao(city,myReq); return; }
+  if(mvCat==="fest"){
+    tourFest(c.lat,c.lng).then(list=>{ if(myReq!==recSeq) return;
+      if(!list.length){ MVLIST=[]; setHTML("mvList",`<p class="muted">지금 이 지역에서 진행 중이거나 예정된 행사를 찾지 못했어요.</p>`); return; }
+      MVLIST=list; renderMustList(list);
+    }).catch(()=>{ if(myReq===recSeq) setHTML("mvList",`<p class="muted">행사 정보를 불러오지 못했어요. 잠시 후 다시 시도하세요.</p>`); });
     return; }
-  mustVisitKakao(city,myReq);
+  const ct=(mvCat==="hot")?null:mvCat;
+  tourSee(c.lat,c.lng,20000,ct,ct?20:40).then(list=>{ if(myReq!==recSeq) return;
+    if(!ct&&list.length){ rankTourIntrinsic(list,c); list=list.slice(0,20); }   /* 기본 탭: 거리순 그대로면 도심 사찰이 독식 → 랜드마크·사진 가중 랭킹 */
+    if(list.length){ MVLIST=list; renderMustList(list); return; }
+    if(!ct) mustVisitKakao(city,myReq);   /* 기본 탭만 카카오 폴백 */
+    else { MVLIST=[]; setHTML("mvList",`<p class="muted">이 지역엔 이 카테고리 정보가 아직 적어요. 다른 카테고리를 눌러보세요.</p>`); }
+  }).catch(()=>{ if(myReq===recSeq){ if(!ct) mustVisitKakao(city,myReq); else setHTML("mvList",`<p class="muted">불러오지 못했어요. 잠시 후 다시 시도하세요.</p>`); } });
 }
 function mustVisitKakao(city,myReq){
   if(!KAKAO_KEY){ const seeds=seedOf().filter(s=>s[1]==="see").map(s=>({name:s[0],cat:"명소",area:s[2]})); MVLIST=seeds; if(!seeds.length){ setHTML("mvList",`<p class="muted">이 도시 큐레이션이 적어요. Kakao/관광공사 키가 있으면 자동으로 받아와요.</p>`); return; } renderMustList(seeds); return; }
@@ -1094,19 +1110,36 @@ function openRec(kind,tgt){ recTarget=tgt||"day"; const regs=areaKeys();
     <div class="quick" style="margin-bottom:6px">${opts}</div><div id="recList"></div>`); }
 /* 🏞️ 한국관광공사 TourAPI(KorService2) — 놀거리·명소 공식 데이터(사진·소개). 브라우저 직접호출 CORS OK */
 function tourTypeLabel(c){ return ({12:"관광지",14:"문화시설",15:"축제·공연",25:"여행코스",28:"레포츠",32:"숙박",38:"쇼핑",39:"음식점"})[c]||"관광"; }
-function tourSee(lat,lng,radius){ radius=radius||4000;
-  const u=`https://apis.data.go.kr/B551011/KorService2/locationBasedList2?serviceKey=${encodeURIComponent(TOUR_KEY)}&numOfRows=40&pageNo=1&MobileOS=ETC&MobileApp=dongseoni&_type=json&mapX=${lng}&mapY=${lat}&radius=${radius}&arrange=E`;
+function tourSee(lat,lng,radius,ct,lim){ radius=radius||4000; lim=lim||14;
+  const u=`https://apis.data.go.kr/B551011/KorService2/locationBasedList2?serviceKey=${encodeURIComponent(TOUR_KEY)}&numOfRows=100&pageNo=1&MobileOS=ETC&MobileApp=dongseoni&_type=json&mapX=${lng}&mapY=${lat}&radius=${radius}&arrange=E`+(ct?`&contentTypeId=${ct}`:"");
   const parse=j=>{
     let it=j&&j.response&&j.response.body&&j.response.body.items&&j.response.body.items.item; if(!it) return [];
     if(!Array.isArray(it)) it=[it];
-    const KEEP={12:1,14:1,15:1,25:1,28:1};   /* 관광지·문화·축제·코스·레포츠 (음식점39·숙박32·쇼핑38 제외) */
-    return it.filter(x=>KEEP[+x.contenttypeid]&&x.mapx&&x.mapy).slice(0,14).map(x=>({
+    const KEEP={12:1,14:1,25:1,28:1};   /* 관광지·문화·코스·레포츠. ⚠️행사(15)는 제외 — 이 엔드포인트는 날짜를 몰라 지난 행사가 섞임 → tourFest(날짜 인지)로 분리 */
+    return it.filter(x=>(ct?true:KEEP[+x.contenttypeid])&&x.mapx&&x.mapy).slice(0,lim).map(x=>({
       name:x.title, cat:tourTypeLabel(+x.contenttypeid), x:x.mapx, y:x.mapy,
       img:x.firstimage||x.firstimage2||"", id:x.contentid, url:"https://map.kakao.com/?q="+encodeURIComponent(x.title), _why:[]
     }));
   };
   const once=()=>fetch(u).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
   return once().catch(()=>new Promise(res=>setTimeout(res,700)).then(once)).then(parse);   /* data.go.kr 게이트웨이 간헐 401 → 700ms 후 1회 재시도 */
+}
+/* 지금·예정 행사 — searchFestival2(행사 기간을 아는 유일한 엔드포인트). 시도 areaCode + 좌표 45km + 종료일>=오늘 필터 */
+const SIDO_AC=[["서울",37.5665,126.9780,1],["인천",37.4563,126.7052,2],["대전",36.3504,127.3845,3],["대구",35.8714,128.6014,4],["광주",35.1595,126.8526,5],["부산",35.1796,129.0756,6],["울산",35.5384,129.3114,7],["세종",36.4801,127.2890,8],["경기",37.4138,127.5183,31],["강원",37.8228,128.1555,32],["충북",36.6357,127.4917,33],["충남",36.5184,126.8000,34],["경북",36.4919,128.8889,35],["경남",35.4606,128.2132,36],["전북",35.7175,127.1530,37],["전남",34.8679,126.9910,38],["제주",33.4890,126.4983,39]];
+function sidoCode(lat,lng){ let b=SIDO_AC[0],bd=1e18; SIDO_AC.forEach(s=>{ const d=haversine({lat,lng},{lat:s[1],lng:s[2]}); if(d<bd){bd=d;b=s;} }); return b[3]; }
+function tourFest(lat,lng){
+  const t=new Date(); t.setDate(t.getDate()-120); const from=ymdLocal(t).replace(/-/g,"");   /* 120일 내 시작한 진행 중 + 예정 (초장기 행사는 누락 가능) */
+  const today=todayStr().replace(/-/g,"");
+  const u=`https://apis.data.go.kr/B551011/KorService2/searchFestival2?serviceKey=${encodeURIComponent(TOUR_KEY)}&numOfRows=100&pageNo=1&MobileOS=ETC&MobileApp=dongseoni&_type=json&arrange=A&eventStartDate=${from}&areaCode=${sidoCode(lat,lng)}`;
+  return tfetch(u,8000).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }).then(j=>{
+    let it=j&&j.response&&j.response.body&&j.response.body.items&&j.response.body.items.item; if(!it) return [];
+    if(!Array.isArray(it)) it=[it];
+    const md=s=>s?(+s.slice(4,6))+"."+(+s.slice(6,8)):"";
+    return it.filter(x=>x.mapx&&x.mapy&&x.eventenddate>=today&&haversine({lat,lng},{lat:+x.mapy,lng:+x.mapx})<=45)
+      .sort((a,b)=>((a.eventstartdate<=today?0:1)-(b.eventstartdate<=today?0:1))||(a.eventstartdate<b.eventstartdate?-1:1))
+      .slice(0,20).map(x=>({ name:x.title, cat:(x.eventstartdate<=today?"진행 중":"예정"), period:md(x.eventstartdate)+"–"+md(x.eventenddate),
+        x:x.mapx, y:x.mapy, img:x.firstimage||"", id:x.contentid, url:"https://map.kakao.com/?q="+encodeURIComponent(x.title) }));
+  });
 }
 const TOUR_LANDMARK=/해수욕장|해변|해안|해상|시장|공원|문화마을|마을|전망대|타워|스카이|케이블카|박물관|미술관|수목원|식물원|온천|폭포|계곡|사찰|템플|왕릉|유적|특구|랜드|월드|테마파크|대교|등대|포구|섬|유원지|동굴|호수|아쿠아리움|워터파크|민속촌|향교|서원/;
 /* 놀거리 = 카카오 검색 정확도(=유명도) 순위로 정렬 + TourAPI 공식 사진 좌표매칭. 둘 다 합법 공식 API(스크래핑 없음). */
