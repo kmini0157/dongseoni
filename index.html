@@ -20,7 +20,8 @@
 <link rel="icon" href="icon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" media="print" onload="this.media='all'" />
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" /></noscript>
 <style>
 :root{
   --bg:#0a0e17;--card:rgba(22,31,49,.82);--card-s:rgba(28,39,64,.9);
@@ -250,7 +251,7 @@ const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 Java
 const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
 const DEFAULT_TOUR  = "71e042381154b4346c64a75d139ceaab665d6174012adf26f2ddfbeefe6194ae";  /* ← 한국관광공사 TourAPI(data.go.kr). 도메인잠금 없음 — 쿼터(1,000/일) 도용 시 data.go.kr에서 재발급 후 교체 */
 const DEFAULT_GEMINI= "AIzaSyCQBAY_1fk4axEsxyi_PTHcU1a20jHB__8";  /* ← Gemini(블로그 AI 추출). 구글 콘솔에서 HTTP 리퍼러 제한(kmini0157.github.io/*) 권장 — 걸면 도용 차단 */
-const APP_VER = "2026-07-03m";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
+const APP_VER = "2026-07-03p";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
 let ADMIN = false; const ADMIN_PW = "KKM";  /* 관리자(개인용): 별점·리뷰수 정렬 잠금 해제. 공개/공유 링크 경로엔 노출 안 됨 */
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
@@ -456,7 +457,7 @@ function fetchOSRM(a,b,k){ osrmPending[k]=true;
   const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),8000);
   fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=false`,{signal:ctl.signal})
     .then(r=>r.json()).then(j=>{ if(j&&j.code==="Ok"&&j.routes&&j.routes[0]){ OSRMCACHE[k]={dist:j.routes[0].distance/1000, car:Math.round(j.routes[0].duration/60)};
-      clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline") render(); } },150); } })
+      clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) render(); } },150); } })
     .catch(()=>{}).finally(()=>{ clearTimeout(to); delete osrmPending[k]; });
 }
 function transit(a,b){
@@ -464,7 +465,7 @@ function transit(a,b){
   if(a.area===b.area && a.city===b.city) return M.same;
   if(!(a.lat&&b.lat)) return 30;
   const k=ck(a)+">"+ck(b), k2=ck(b)+">"+ck(a), O=OSRMCACHE[k]||OSRMCACHE[k2];
-  if(!O && !osrmPending[k] && !osrmPending[k2]) fetchOSRM(a,b,k);   // 도로거리·자동차시간 실측(모드 공용)
+  if(!O && !osrmPending[k] && !osrmPending[k2] && !(mode==="transit" && ODSAY_KEY && OD_OK!==false)) fetchOSRM(a,b,k);   // 도로거리·자동차시간 실측 — 대중교통은 ODsay 가용 시 OSRM 생략(중복 호출 제거, ODsay 미가용이면 폴백 정확도 위해 유지)
   if(mode==="transit"){
     if(ODCACHE[k]!=null) return ODCACHE[k]; if(ODCACHE[k2]!=null) return ODCACHE[k2];
     if(ODSAY_KEY && OD_OK!==false && !odPending[k]){ odPending[k]=true; fetchOdsay(a,b,k); }
@@ -493,7 +494,7 @@ let odRenderT=null;
 async function fetchOdsay(a,b,k){
   const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),9000);
   try{ const r=await fetch(odsayUrl(a.lat,a.lng,b.lat,b.lng),{signal:ctl.signal}); const j=await r.json(); const t=j&&j.result&&j.result.path&&j.result.path[0]&&j.result.path[0].info&&j.result.path[0].info.totalTime;
-    if(t){ OD_OK=true; ODCACHE[k]=t+8; clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline") render(); } },150); } }
+    if(t){ OD_OK=true; ODCACHE[k]=t+8; clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) render(); } },150); } }
   catch(e){ /* 개별 경로 실패는 전역 OD_OK를 끄지 않음 — 그 경로만 추정 폴백 */ }
   finally{ clearTimeout(to); delete odPending[k]; }
 }
@@ -604,7 +605,7 @@ function render(){
   else { app.innerHTML=renderEdit(); buildSky(skyMoodNow()); }
   bindScreen(); finishEnter();
   const dc=dayCoords(curDay);
-  ensureWeather(dc.lat,dc.lng).then(w=>{ if(w&&!hadWX){ if(screen==="home") applySim(); else if(screen==="timeline") render(); } });
+  ensureWeather(dc.lat,dc.lng).then(w=>{ if(w&&!hadWX){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) render(); } });   /* 드래그 중 재렌더 스킵 — 진행 중 제스처 보호(dndCommit이 종료 시 render) */
 }
 function finishEnter(){ requestAnimationFrame(()=>setTimeout(()=>document.getElementById("app").classList.remove("entering"),650)); }
 function skyMoodNow(){ const at=nowMinutes(); const w=wxAt(curDate(),at); return moodClass(w?w.code:null,at); }
@@ -801,24 +802,32 @@ function dndDown(e){ if(e.button>0) return; if(e.target.closest(".tl-acts,.move,
   row.addEventListener("pointermove",dndMove,{passive:false}); row.addEventListener("pointerup",dndUp); row.addEventListener("pointercancel",dndUp); }
 function dndArm(){ if(!DND) return; DND.armed=true; try{getSelection().removeAllRanges();}catch(_){} if(navigator.vibrate) try{navigator.vibrate(12);}catch(_){}
   document.body.classList.add("dnd-active"); const row=DND.row,r=row.getBoundingClientRect(); try{row.setPointerCapture(DND.ptr);}catch(_){}
-  const g=row.cloneNode(true); g.className="tl-item dnd-ghost"; g.style.width=r.width+"px"; DND.offX=DND.x0-r.left; DND.offY=DND.y0-r.top; DND.ghost=g; document.body.appendChild(g); dndGhostMove(DND.x0,DND.y0); row.classList.add("dragging"); }
+  const g=row.cloneNode(true); g.className="tl-item dnd-ghost"; g.style.width=r.width+"px"; DND.offX=DND.x0-r.left; DND.offY=DND.y0-r.top; DND.ghost=g; document.body.appendChild(g); dndGhostMove(DND.x0,DND.y0); row.classList.add("dragging");
+  DND.rows=[...document.querySelectorAll(".wrap .tl-item[data-pid]")].filter(r2=>r2!==row);   /* 성능: 드래그 세션 동안 목록 고정(프레임마다 재쿼리 제거 — 드래그 중엔 재렌더 안 됨) */
+  DND.line=document.createElement("div"); DND.line.className="drop-line"; }   /* 성능: drop-line 단일 재사용(프레임마다 생성/삭제 제거) */
 function dndGhostMove(x,y){ if(DND&&DND.ghost) DND.ghost.style.transform="translate("+(x-DND.offX)+"px,"+(y-DND.offY)+"px)"; }
 function dndMove(e){ if(!DND) return;
   if(!DND.armed){ if(Math.hypot(e.clientX-DND.x0,e.clientY-DND.y0)>SLOP){ clearTimeout(DND.timer); dndCleanup(); } return; }
-  e.preventDefault(); dndGhostMove(e.clientX,e.clientY); dndUpdateDrop(e.clientY);
+  e.preventDefault(); dndGhostMove(e.clientX,e.clientY);
+  DND.lastY=e.clientY; if(!DND.raf) DND.raf=requestAnimationFrame(dndFrame);   /* 성능: 드롭 계산을 프레임당 1회로 코얼레싱(pointermove 초당 수십~120회 → 최대 60회) */
   const m=70; if(e.clientY<m) document.scrollingElement.scrollBy(0,-12); else if(e.clientY>innerHeight-m) document.scrollingElement.scrollBy(0,12); }
-function dndUpdateDrop(y){ document.querySelectorAll(".drop-line").forEach(d=>d.remove());
-  const cands=[...document.querySelectorAll(".wrap .tl-item[data-pid]")].filter(r=>r!==DND.row); let tgt=null,before=true;
+function dndFrame(){ if(!DND) return; DND.raf=null; dndUpdateDrop(DND.lastY); }
+function dndUpdateDrop(y){ if(!DND) return;
+  const cands=DND.rows||[]; let tgt=null,before=true;
   for(const r of cands){ const rr=r.getBoundingClientRect(); if(y<rr.top+rr.height/2){ tgt=r; before=true; break; } }
   if(!tgt&&cands.length){ tgt=cands[cands.length-1]; before=false; }
-  if(tgt){ const line=document.createElement("div"); line.className="drop-line"; tgt.parentNode.insertBefore(line, before?tgt:tgt.nextSibling); DND.drop={pid:tgt.dataset.pid,before}; } else DND.drop=null; }
+  const line=DND.line;
+  if(tgt){ const ref=before?tgt:tgt.nextSibling;
+    if(line.parentNode!==tgt.parentNode||line.nextSibling!==ref) tgt.parentNode.insertBefore(line, ref);   /* 위치 바뀔 때만 이동(같으면 no-op) */
+    DND.drop={pid:tgt.dataset.pid,before}; }
+  else { if(line.parentNode) line.remove(); DND.drop=null; } }
 function dndUp(e){ if(!DND) return; clearTimeout(DND.timer); if(DND.armed){ if(e&&e.preventDefault) e.preventDefault(); dndCommit(); } dndCleanup(); }
 function dndCommit(){ const arr=TRIP.days[curDay].places, from=arr.findIndex(p=>p.id===DND.pid); if(from<0) return; let to=arr.length-1;
   if(DND.drop){ const ti=arr.findIndex(p=>p.id===DND.drop.pid); to=DND.drop.before?ti:ti+1; }
   const [it]=arr.splice(from,1); if(to>from) to--; to=Math.max(0,Math.min(to,arr.length)); arr.splice(to,0,it); save(); render(); toast("순서 변경됨"); }
-function dndCleanup(){ if(!DND) return; const row=DND.row;
+function dndCleanup(){ if(!DND) return; if(DND.raf) cancelAnimationFrame(DND.raf); const row=DND.row;
   if(row){ row.removeEventListener("pointermove",dndMove); row.removeEventListener("pointerup",dndUp); row.removeEventListener("pointercancel",dndUp); try{row.releasePointerCapture(DND.ptr);}catch(_){} row.classList.remove("dragging"); }
-  if(DND.ghost) DND.ghost.remove(); document.querySelectorAll(".drop-line").forEach(d=>d.remove()); document.body.classList.remove("dnd-active"); DND=null; }
+  if(DND.ghost) DND.ghost.remove(); if(DND.line&&DND.line.parentNode) DND.line.remove(); document.querySelectorAll(".drop-line").forEach(d=>d.remove()); document.body.classList.remove("dnd-active"); DND=null; }
 function toggleTypeFields(v){ document.getElementById("eatFields").classList.toggle("hide",v!=="eat"); document.getElementById("seeIndoor").classList.toggle("hide",v!=="see"); }
 let seeIndoorVal=false;
 function toggleSeeIndoor(v){ seeIndoorVal=v; document.getElementById("seeOut").classList.toggle("on",!v); document.getElementById("seeIn").classList.toggle("on",v); }
@@ -1056,7 +1065,7 @@ function fetchMustVisit(city){
 }
 function renderMustList(list,note){
   setHTML("mvList", (note?`<p class="muted" style="margin:0 0 8px">${note}</p>`:"") + list.map((p,i)=>{
-    const thumb=p.img?`<img src="${escapeHtml(p.img)}" alt="" loading="lazy" style="width:42px;height:42px;border-radius:8px;object-fit:cover;flex:none;background:rgba(255,255,255,.06)">`:"";
+    const thumb=p.img?`<img src="${escapeHtml(p.img)}" alt="" loading="lazy" decoding="async" style="width:42px;height:42px;border-radius:8px;object-fit:cover;flex:none;background:rgba(255,255,255,.06)">`:"";
     const link=p.url||("https://map.kakao.com/?q="+encodeURIComponent(p.name));   /* 카카오 경유=장소 상세(평점·영업시간), 관광공사=이름 검색 딥링크 */
     const hasInfo=!!(p.id&&p.ct);   /* 관광공사 항목 = contentid로 상세(소개·이용시간·휴무·메뉴) 조회 가능 */
     return `<div class="poi"><input type="checkbox" ${i<6?"checked":""} id="mv_${i}" style="width:20px;height:20px;flex:none;accent-color:var(--accent)">${thumb}<div class="nm"${hasInfo?` onclick="openTourInfo('${jsStr(String(p.id))}',${+p.ct||12})" style="cursor:pointer"`:""}><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat||"명소")}${p.period?` · ${escapeHtml(p.period)}`:""}${p.dist?` · ${fmtDist(p.dist)}`:""}${hasInfo?` · <u>상세 보기</u>`:""}</span></div><button class="go" onclick="openLink('${jsStr(link)}')">지도</button></div>`;
@@ -1079,7 +1088,7 @@ function openTourInfo(id,ct){ ct=+ct||12;
   const paint=(d)=>{ if(!document.getElementById("mvList")) return;
     const row=(lab,val)=>val?`<div style="margin:7px 0"><span class="muted" style="font-size:12px">${lab}</span><div style="font-size:14px;line-height:1.6">${escapeHtml(val).replace(/\n/g,"<br>")}</div></div>`:"";
     const home=(d.homepage||"").match(/https?:\/\/[^\s"'<>]+/);
-    setHTML("mvList", `${d.img?`<img src="${escapeHtml(d.img)}" alt="" style="width:100%;max-height:210px;object-fit:cover;border-radius:12px;margin-bottom:10px">`:""}
+    setHTML("mvList", `${d.img?`<img src="${escapeHtml(d.img)}" alt="" loading="lazy" decoding="async" style="width:100%;max-height:210px;object-fit:cover;border-radius:12px;margin-bottom:10px">`:""}
       <div style="font-weight:800;font-size:17px;margin-bottom:2px">${escapeHtml(d.title||"")}</div>
       ${row("기간", d.period)}${row(ct===15?"운영 일정":"이용 시간", d.playtime)}${row("휴무", d.rest)}${row("대표 메뉴", d.menu)}${row("장소", d.place)}${row("요금", d.fee)}${row("문의", d.tel)}${row("소개", d.overview)}
       <div class="row2" style="margin-top:12px"><button class="btn primary" onclick="openLink('${jsStr("https://map.kakao.com/?q="+encodeURIComponent(d.title||""))}')">카카오맵</button>${home?`<button class="btn line" onclick="openLink('${jsStr(home[0])}')">공식 홈페이지</button>`:""}</div>${back}`); };
@@ -1165,8 +1174,12 @@ function openRec(kind,tgt){ recTarget=tgt||"day"; const regs=areaKeys();
     <div class="quick" style="margin-bottom:6px">${opts}</div>${recBaseBar()}<div id="recList"></div>`); }
 /* 🏞️ 한국관광공사 TourAPI(KorService2) — 놀거리·명소 공식 데이터(사진·소개). 브라우저 직접호출 CORS OK */
 function tourTypeLabel(c){ return ({12:"관광지",14:"문화시설",15:"축제·공연",25:"여행코스",28:"레포츠",32:"숙박",38:"쇼핑",39:"음식점"})[c]||"관광"; }
+const TOURCACHE={}, FESTCACHE={};   /* 성능: 명소·축제 재진입 즉시표시(TTL 15분, 대용량 JSON 재파싱 제거). 인메모리·transient — localStorage/encodeTrip 미포함 */
 function tourSee(lat,lng,radius,ct,lim){ radius=radius||4000; lim=lim||14;
-  const u=`https://apis.data.go.kr/B551011/KorService2/locationBasedList2?serviceKey=${encodeURIComponent(TOUR_KEY)}&numOfRows=100&pageNo=1&MobileOS=ETC&MobileApp=dongseoni&_type=json&mapX=${lng}&mapY=${lat}&radius=${radius}&arrange=E`+(ct?`&contentTypeId=${ct}`:"");
+  const ck=(+lat).toFixed(3)+","+(+lng).toFixed(3)+","+radius+","+(ct||"")+","+lim;
+  const cc=TOURCACHE[ck]; if(cc&&Date.now()-cc.ts<9e5) return Promise.resolve(cc.v);
+  const rows=Math.min(100, ct? lim*2 : lim*3);   /* 실사용분(lim)에 비례 — ct탭은 40, hot/null은 KEEP필터 희석 대비 여유(≈100) */
+  const u=`https://apis.data.go.kr/B551011/KorService2/locationBasedList2?serviceKey=${encodeURIComponent(TOUR_KEY)}&numOfRows=${rows}&pageNo=1&MobileOS=ETC&MobileApp=dongseoni&_type=json&mapX=${lng}&mapY=${lat}&radius=${radius}&arrange=E`+(ct?`&contentTypeId=${ct}`:"");
   const parse=j=>{
     let it=j&&j.response&&j.response.body&&j.response.body.items&&j.response.body.items.item; if(!it) return [];
     if(!Array.isArray(it)) it=[it];
@@ -1177,13 +1190,15 @@ function tourSee(lat,lng,radius,ct,lim){ radius=radius||4000; lim=lim||14;
     }));
   };
   const once=()=>fetch(u).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
-  return once().catch(()=>new Promise(res=>setTimeout(res,700)).then(once)).then(parse);   /* data.go.kr 게이트웨이 간헐 401 → 700ms 후 1회 재시도 */
+  return once().catch(()=>new Promise(res=>setTimeout(res,700)).then(once)).then(parse).then(v=>{ TOURCACHE[ck]={ts:Date.now(),v}; return v; });   /* data.go.kr 게이트웨이 간헐 401 → 700ms 후 1회 재시도 */
 }
 /* 지금·예정 행사 — searchFestival2(행사 기간을 아는 유일한 엔드포인트). 시도 areaCode + 좌표 45km + 종료일>=오늘 필터 */
 const SIDO_AC=[["서울",37.5665,126.9780,1],["인천",37.4563,126.7052,2],["대전",36.3504,127.3845,3],["대구",35.8714,128.6014,4],["광주",35.1595,126.8526,5],["부산",35.1796,129.0756,6],["울산",35.5384,129.3114,7],["세종",36.4801,127.2890,8],["경기",37.4138,127.5183,31],["강원",37.8228,128.1555,32],["충북",36.6357,127.4917,33],["충남",36.5184,126.8000,34],["경북",36.4919,128.8889,35],["경남",35.4606,128.2132,36],["전북",35.7175,127.1530,37],["전남",34.8679,126.9910,38],["제주",33.4890,126.4983,39]];
 function sidoCode(lat,lng){ let b=SIDO_AC[0],bd=1e18; SIDO_AC.forEach(s=>{ const d=haversine({lat,lng},{lat:s[1],lng:s[2]}); if(d<bd){bd=d;b=s;} }); return b[3]; }
 function tourFest(lat,lng,from,to){
   from=from||todayStr().replace(/-/g,"");   /* from~to와 기간이 겹치는 행사만. to 없으면 from 이후 전부 */
+  const ck=(+lat).toFixed(3)+","+(+lng).toFixed(3)+","+from+","+(to||"");
+  const cc=FESTCACHE[ck]; if(cc&&Date.now()-cc.ts<9e5) return Promise.resolve(cc.v);
   /* ⚠️areaCode 필터 금지 — DB에 지역코드 누락이 많아 부산 행사(록페스티벌 등)도 부산 코드 조회에서 빠짐(실측). 전국 조회 + 좌표 거리 필터가 정답 */
   const u=`https://apis.data.go.kr/B551011/KorService2/searchFestival2?serviceKey=${encodeURIComponent(TOUR_KEY)}&numOfRows=500&pageNo=1&MobileOS=ETC&MobileApp=dongseoni&_type=json&arrange=A&eventStartDate=${from}`;
   return tfetch(u,9000).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }).then(j=>{
@@ -1195,7 +1210,7 @@ function tourFest(lat,lng,from,to){
       .sort((a,b)=>((a.x.eventstartdate<=from?0:1)-(b.x.eventstartdate<=from?0:1))||(a.x.eventstartdate<b.x.eventstartdate?-1:1)||(a.d-b.d))
       .slice(0,30).map(o=>{ const x=o.x; return { name:x.title, cat:(x.eventstartdate<=from?"진행 중":"예정"), ct:15, period:md(x.eventstartdate)+"–"+md(x.eventenddate),
         dist:Math.round(o.d*1000), x:x.mapx, y:x.mapy, img:x.firstimage||"", id:x.contentid, url:"https://map.kakao.com/?q="+encodeURIComponent(x.title) }; });
-  });
+  }).then(v=>{ FESTCACHE[ck]={ts:Date.now(),v}; return v; });
 }
 const TOUR_LANDMARK=/해수욕장|해변|해안|해상|시장|공원|문화마을|마을|전망대|타워|스카이|케이블카|박물관|미술관|수목원|식물원|온천|폭포|계곡|사찰|템플|왕릉|유적|특구|랜드|월드|테마파크|대교|등대|포구|섬|유원지|동굴|호수|아쿠아리움|워터파크|민속촌|향교|서원/;
 /* 놀거리 = 카카오 검색 정확도(=유명도) 순위로 정렬 + TourAPI 공식 사진 좌표매칭. 둘 다 합법 공식 API(스크래핑 없음). */
@@ -1208,11 +1223,12 @@ function renderPlayList(list,region,t){
   view=sortRec(view);
   const pnote=adm?starNote(list):"";
   setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 인기·추천순 명소 ${view.length}곳${recBase?` · 거리는 ${escapeHtml(recBase.name)} 기준`:""}${pnote}</div>`+recSortBar()+
-    view.map(p=>{ const thumb=p.img?`<img src="${escapeHtml(p.img)}" alt="" loading="lazy" style="width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;margin-right:4px;background:rgba(255,255,255,.06)">`:"";
+    view.map(p=>{ const thumb=p.img?`<img src="${escapeHtml(p.img)}" alt="" loading="lazy" decoding="async" style="width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;margin-right:4px;background:rgba(255,255,255,.06)">`:"";
       const star=(adm&&p.rating!=null)?`⭐${(+p.rating).toFixed(1)}${p.reviews!=null?` (${p.reviews})`:""}`:"";
       const meta=[(p._why||[]).join(" "), star, escapeHtml(p.cat||"명소"), p.dist?fmtDist(p.dist):""].filter(Boolean).join(" · ");
+      const chk=(adm&&String(p.url||"").includes("place.map.kakao.com"))?`<button class="go" onclick="openReviewCheck('${jsStr(String(p.id))}','${jsStr(p.name)}',${+p.reviews||0})">점검</button>`:"";
       return `<div class="poi">${thumb}<div class="nm"><b>${escapeHtml(p.name)}</b><span>${meta}</span></div>
-      <button class="go" onclick="openLink('${jsStr(p.url)}')">지도</button><button class="add" onclick="addRec('${jsStr(p.name)}','${t}','${jsStr(region)}',${(+p.y||0)},${(+p.x||0)})">＋추가</button></div>`;
+      ${chk}<button class="go" onclick="openLink('${jsStr(p.url)}')">지도</button><button class="add" onclick="addRec('${jsStr(p.name)}','${t}','${jsStr(region)}',${(+p.y||0)},${(+p.x||0)})">＋추가</button></div>`;
     }).join("")); }
 function kakaoPlayFame(region,c){   /* 카카오 키워드검색 정확도순 = 유명도 프록시(맛집과 동일 신호) */
   if(!window.kakao) return Promise.resolve([]);
@@ -1302,7 +1318,7 @@ function recRev(){ recRev100=!recRev100; rerenderRec(); }
 function recSortBar(){ const ck="padding:4px 11px;font-size:12px";
   let b=`<button class="ck${recSortMode==="pop"?" on":""}" style="${ck}" onclick="recSort('pop')">인기순</button><button class="ck${recSortMode==="dist"?" on":""}" style="${ck}" onclick="recSort('dist')">거리순</button>`;
   if(ADMIN && RLIST && (RLIST.kind==="eat"||RLIST.kind==="playlist"))
-    b+=`<button class="ck${recSortMode==="star"?" on":""}" style="${ck}" onclick="recSort('star')">⭐별점순</button><button class="ck${recSortMode==="review"?" on":""}" style="${ck}" onclick="recSort('review')">리뷰순</button><button class="ck${recRev100?" on":""}" style="${ck}" onclick="recRev()">리뷰 100+</button>`;
+    b+=`<button class="ck${recSortMode==="star"?" on":""}" style="${ck}" onclick="recSort('star')">⭐별점순</button><button class="ck${recSortMode==="review"?" on":""}" style="${ck}" onclick="recSort('review')">리뷰순</button><button class="ck${recRev100?" on":""}" style="${ck}" onclick="recRev()">리뷰 100+</button><button class="ck" style="${ck}" onclick="openReviewCheck()">리뷰 점검</button>`;
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px">${b}</div>`; }
 function renderKakaoList(list,region,kind,t,note){
   applyBaseDist(list); RLIST={list,region,kind,t,note};
@@ -1323,8 +1339,9 @@ function renderKakaoList(list,region,kind,t,note){
     view.map(p=>{
       const star = (adm&&p.rating!=null) ? `⭐${(+p.rating).toFixed(1)}${p.reviews!=null?` (${p.reviews})`:""}` : "";
       const meta = [(p._why||[]).join(" "), star, escapeHtml(p.cat), p.dist?fmtDist(p.dist):""].filter(Boolean).join(" · ");
+      const chk = (adm&&String(p.url||"").includes("place.map.kakao.com")) ? `<button class="go" onclick="openReviewCheck('${jsStr(String(p.id))}','${jsStr(p.name)}',${+p.reviews||0})">점검</button>` : "";
       return `<div class="poi"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${meta}</span></div>
-      <button class="go" onclick="openLink('${jsStr(p.url)}')">${goLabel}</button><button class="add" onclick="addRec('${jsStr(p.name)}','${t}','${jsStr(region)}',${(+p.y||0)},${(+p.x||0)})">＋추가</button></div>`;
+      ${chk}<button class="go" onclick="openLink('${jsStr(p.url)}')">${goLabel}</button><button class="add" onclick="addRec('${jsStr(p.name)}','${t}','${jsStr(region)}',${(+p.y||0)},${(+p.x||0)})">＋추가</button></div>`;
     }).join("")); }
 function showRec(region,kind){ const t=kind==="eat"?"eat":"see"; const ck2=region+"|"+kind; const myReq=++recSeq; lastRec={r:region,k:kind}; recCuisine="all";
   if(kind!=="eat"){ playRec(region,t,ck2,myReq); return; }   /* 놀거리·볼거리 = 인기·추천순(카카오 정확도) + 관광공사 사진 */
@@ -1547,7 +1564,7 @@ function geoStart(silent){ if(geoWatch!=null||!navigator.geolocation) return;
   localStorage.setItem("dongseoni_geo","1"); if(!silent) toast("도착 자동 감지 켜짐 — 화면을 켜둔 채 유지해 드려요"); }
 function geoStop(){ if(geoWatch!=null){ try{ navigator.geolocation.clearWatch(geoWatch); }catch(e){} geoWatch=null; } wlRelease(); }
 function toggleGeo(){ if(geoWatch!=null){ geoStop(); localStorage.removeItem("dongseoni_geo"); toast("도착 자동 감지 꺼짐"); } else geoStart(false); if(screen==="home") render(); }
-document.addEventListener("visibilitychange",()=>{ if(document.hidden){ if(geoWatch!=null){ geoStop(); geoPaused=true; } } else if(geoPaused){ geoPaused=false; geoStart(true); } });   /* 숨김 시 배터리 절약 */
+document.addEventListener("visibilitychange",()=>{ if(document.hidden){ if(geoWatch!=null){ geoStop(); geoPaused=true; } } else { if(geoPaused){ geoPaused=false; geoStart(true); } if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); } });   /* 숨김 시 배터리 절약 · 복귀 시 시계 즉시 보정(인터벌 백그라운드 스킵 보완) */
 try{ if(localStorage.getItem("dongseoni_geo")==="1"&&navigator.permissions&&navigator.geolocation){ navigator.permissions.query({name:"geolocation"}).then(st=>{ if(st.state==="granted"){ geoStart(true); if(screen==="home") render(); } }).catch(()=>{}); } }catch(e){}   /* 이전에 켰고 권한 있으면 조용히 재개 */
 const ONB=[{say:"안녕! 난 <b>동선이</b>야 🧭",mood:"clear",emo:"happy"},{say:"전국 어디로 떠나? 도시를 골라줘",mood:"cloud",emo:"happy"},{say:"가고 싶은 곳·맛집 넣으면<br>동선을 딱 짜줄게!",mood:"clear",emo:"heart"}];
 function onbAdvance(){ if(onbStep<ONB.length-1){ onbStep++; render(); } else { onbDone=true; localStorage.setItem("dongseoni_onb","1"); onbStep=0; setTab("edit"); setTimeout(openDestPicker,200); } }
@@ -1591,7 +1608,8 @@ function fetchStar(id){
   const rid=String(id||"").replace(/\D/g,""); if(!rid) return Promise.resolve(null);
   const c=STARS[rid]; if(c && (Date.now()-c.t)<6048e5) return Promise.resolve(c);   /* 7일 캐시 */
   if(jinaDead) return Promise.resolve(c||null);
-  return fetch("https://r.jina.ai/https://place.map.kakao.com/"+rid)
+  const ac=new AbortController(), to=setTimeout(()=>ac.abort(),8000);   /* 성능: 요청당 8s 타임아웃 */
+  return fetch("https://r.jina.ai/https://place.map.kakao.com/"+rid,{signal:ac.signal})
     .then(r=>r.ok?r.text():Promise.reject(r.status))
     .then(txt=>{ let rating=null,reviews=null;
       const at=txt.indexOf("place.map.kakao.com/"+rid);           /* 이 장소 링크 주변(같은 카드)에서만 추출 → 다른 가게 값 혼입 방지 */
@@ -1601,13 +1619,15 @@ function fetchStar(id){
       const vm=win.match(/후기\s*([\d,]+)\s*개?/)||win.match(/리뷰\s*([\d,]+)/);
       if(vm) reviews=parseInt(vm[1].replace(/,/g,""),10);
       jinaFails=0; const o={rating,reviews,t:Date.now()}; STARS[rid]=o; saveStars(); return o; })
-    .catch(()=>{ if(++jinaFails>=4) jinaDead=true; return c||null; }); }
+    .catch(e=>{ if(!(e&&e.name==="AbortError")&&++jinaFails>=6) jinaDead=true; return c||null; })   /* 타임아웃/취소는 영구 카운터 제외 + 임계값 4→6(조기 전면차단 방지) */
+    .finally(()=>clearTimeout(to)); }
 function enrichStars(list){
   if(!ADMIN||!list||list._starTried) return; list._starTried=true;
   const targets=list.filter(p=>String(p.url||"").includes("place.map.kakao.com"))
     .sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,20);
   if(!targets.length||jinaDead){ list._starDone=true; return; }
-  Promise.all(targets.map(p=>fetchStar(p.id).then(s=>{ if(s){ if(s.rating!=null) p.rating=s.rating; if(s.reviews!=null) p.reviews=s.reviews; } }).catch(()=>{})))
+  let i=0; const worker=async()=>{ while(i<targets.length){ const p=targets[i++]; try{ const s=await fetchStar(p.id); if(s){ if(s.rating!=null) p.rating=s.rating; if(s.reviews!=null) p.reviews=s.reviews; } }catch(e){} } };   /* 성능: 20병렬→동시성 4(r.jina.ai 429·모바일 소켓 부담 완화) */
+  Promise.all(Array.from({length:Math.min(4,targets.length)},worker))
     .then(()=>{ list._starDone=true; if(RLIST&&RLIST.list===list) rerenderRec(); }); }
 function kakaoRec(region,kind){
   const c=areaCoords(region); if(!window.kakao) return Promise.resolve({list:[],err:"load"});
@@ -1677,11 +1697,124 @@ function openSettings(){ openSheet(`<h3>API 연동 (선택)</h3>
   <p class="muted" style="margin-top:12px">현재: 맛집검색 ${KAKAO_KEY?"연동됨":"큐레이션"} · 대중교통 ${ODSAY_KEY?"연동됨":"보정추정"} · 놀거리 ${TOUR_KEY?"관광공사":"Kakao"} · 버전 ${APP_VER}${ADMIN?" · 관리자 ON":""}</p>`); }
 function adminOff(){ ADMIN=false; localStorage.removeItem("dongseoni_admin"); if(recSortMode==="star"||recSortMode==="review") recSortMode="pop"; recRev100=false;
   closeSheet(); toast("관리자 모드 꺼짐"); if(lastRec&&document.getElementById("recList")) showRec(lastRec.r,lastRec.k); }
+/* 리뷰 점검 — 관리자·개인용 2경로: ① 장소별 "점검" 버튼 = 카카오맵 place 첫 화면에 노출된 후기·블로그 발췌를 Jina로 읽어 관찰(첫 화면 노출분만 = 전수 아님을 UI에 명시), ② 붙여넣기.
+   가짜/알바 '판정' 금지 → 광고·대가성으로 보일 수 있는 '표현' 관찰 + 사실만 그대로 표시(작성자 후기수·평균, 날짜, 같은날 몰림 등). 본문·결과는 세션 메모리만(REVTXT — localStorage/TRIP/encodeTrip 미저장 = 공유 유출·공연성 차단). 오탐 경고 강제. */
+let REVTXT={};   /* 세션 한정 캐시 — 영속화 금지 */
+function revParse(t){
+  const out=[]; const seen={}; let m;
+  const re=/별점\s*([0-5](?:\.\d)?)\s*(20\d{2}\.\d{1,2}\.\d{1,2})\.?\s*\[([^\]]{2,700})\]\(/g;   /* 날짜 필수 = 개별 후기만(인근 랭킹 "별점 4.1 후기 981"엔 날짜 없음 → 배제) */
+  while((m=re.exec(t)) && out.length<12){
+    const txt=m[3].trim(); if(seen[txt]) continue; seen[txt]=1;
+    const back=t.slice(Math.max(0,m.index-520), m.index);   /* 직전 작성자 프로필 블록에서 이력 추출 */
+    const hg=[...back.matchAll(/후기\s*(\d{1,5})\b/g)], av=[...back.matchAll(/별점평균\s*([0-5](?:\.\d)?)/g)];
+    out.push({kind:"user",rating:m[1],date:m[2],text:txt,rvN:hg.length?+hg[hg.length-1][1]:null,rvAvg:av.length?av[av.length-1][1]:null});
+  }
+  const rb=/\[\*\*블로그 타이틀\s*([^*\]]{2,90})\*\*\s*([^\]]{10,1500}?)\s*블로그명\s*[^\]]{0,60}?작성일자\s*(20\d{2}\.\d{1,2}\.\d{1,2})/g;
+  while((m=rb.exec(t)) && out.length<16){
+    const txt=(m[1].trim()+" — "+m[2].trim()).slice(0,700); if(seen[txt]) continue; seen[txt]=1;
+    out.push({kind:"blog",rating:null,date:m[3],text:txt,rvN:null,rvAvg:null});
+  }
+  return out; }
+function revScrape(id){
+  const rid=String(id||"").replace(/\D/g,""); if(!rid) return Promise.reject("noid");
+  if(REVTXT[rid]) return Promise.resolve(REVTXT[rid]);
+  if(jinaDead) return Promise.reject("dead");
+  const ac=new AbortController(); const to=setTimeout(()=>ac.abort(),15000);
+  return fetch("https://r.jina.ai/https://place.map.kakao.com/"+rid,{signal:ac.signal})
+    .then(r=>{ clearTimeout(to); if(!r.ok) throw 0; return r.text(); })
+    .then(t=>{ jinaFails=0; const list=revParse(t); REVTXT[rid]=list; return list; })
+    .catch(e=>{ clearTimeout(to); if(++jinaFails>=4) jinaDead=true; throw e; }); }
+function llmTone(parts){
+  const listTxt=parts.map((r,i)=>`[${i}] ${r}`).join("\n\n");
+  const prompt=`너는 리뷰의 '표현 톤'만 관찰하는 도우미다. 진짜/가짜, 알바 여부는 절대 판정하지 마라(텍스트만으론 알 수 없다).
+아래 여러 리뷰 각각에서 '광고·협찬·대가성으로 보일 수 있는 표현적 특징'만 골라라.
+관찰 예: 과도한 홍보성 수식어 나열, 대가성 정황 문구(협찬·제공받아·체험단·원고료·소정의), 구체적 경험(맛·가격·상황) 없이 일반적 극찬만, 브랜드·메뉴명 부자연스러운 반복, 정형화된 붙여넣기 느낌.
+특이사항 없으면 signals는 빈 배열로 둬라(정상 리뷰를 억지로 의심하지 마라). '가짜다/알바다' 같은 단정 표현 금지 — 관찰만, note는 한 줄 이내.
+JSON으로만 답하라: {"reviews":[{"i":0,"tone":"neutral","signals":[],"note":""}]} (tone은 "neutral" 또는 "promotional")
+리뷰들:
+${listTxt}`;
+  const call=m=>Promise.race([
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0,responseMimeType:"application/json"}})}),
+    new Promise((_,x)=>setTimeout(()=>x(new Error("timeout")),15000))
+  ]).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
+  return call("gemini-flash-lite-latest").catch(()=>call("gemini-2.5-flash")).then(j=>{
+    const rawT=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts[0].text;
+    let o=null; try{ o=JSON.parse(rawT); }catch(e){}
+    const rv=(o&&Array.isArray(o.reviews))?o.reviews:null; if(!rv) throw new Error("parse");
+    const byI={}; rv.forEach(x=>{ byI[+x.i]=x; }); return byI; }); }
+function renderRevList(mode,ptotal,list,byI,llmState){
+  const users=list.filter(x=>x.kind==="user"), blogs=list.filter(x=>x.kind==="blog");
+  const notes=[];
+  if(mode==="scrape"){
+    const dates={}; users.forEach(x=>{ dates[x.date]=(dates[x.date]||0)+1; });
+    const dmax=Object.entries(dates).sort((a,b)=>b[1]-a[1])[0];
+    if(dmax&&dmax[1]>=2) notes.push(`같은 날짜(${dmax[0]})에 후기 ${dmax[1]}개`);
+    const lowN=users.filter(x=>x.rvN!=null&&x.rvN<=3).length;
+    if(lowN) notes.push(`후기 이력 3개 이하 작성자 ${lowN}명`);
+    if(users.length>=3&&users.every(x=>parseFloat(x.rating)>=5)) notes.push(`노출분 전부 5점`);
+  }
+  const promoN=byI?list.filter((_,i)=>{ const a=byI[i]; return a&&a.tone==="promotional"&&a.signals&&a.signals.length; }).length:null;
+  const llmTail = byI!=null ? ` — <b style="color:var(--warn)">${promoN}개</b>에서 광고성 표현 <span class="muted">(참고용, 단정 아님)</span>`
+    : llmState==="pending" ? ` · <span class="muted">표현 점검 중…</span>`
+    : llmState==="fail" ? ` · <span class="muted">AI 표현 점검은 못 함 — 아래는 사실 정보만</span>` : "";
+  const head=(mode==="scrape"
+      ?`<div style="font-size:13px;color:var(--tx2);margin-bottom:2px">첫 화면 노출 후기 ${users.length}개${blogs.length?` · 블로그 발췌 ${blogs.length}개`:""}${ptotal?` <span class="muted">(전체 ${ptotal}개 중 일부)</span>`:""}${llmTail}</div>`
+      :`<div style="font-size:13px;color:var(--tx2);margin-bottom:2px">${list.length}개 중 <b style="color:var(--warn)">${promoN}개</b>에서 광고성 표현이 보여요 <span class="muted">(참고용, 단정 아님)</span></div>`)
+    +(notes.length?`<div class="muted" style="font-size:12px;margin:4px 0 2px">패턴 메모(표본 적음 · 참고만): ${notes.map(n=>escapeHtml(n)).join(" · ")}</div>`:"");
+  const rows=list.map((x,i)=>{
+    const a=byI&&byI[i]; const promo=a&&a.tone==="promotional"&&a.signals&&a.signals.length;
+    const chips=promo?(a.signals||[]).slice(0,4).map(s=>`<span class="bdg" style="background:rgba(255,170,60,.14);color:var(--warn);margin:2px 4px 0 0;display:inline-block">${escapeHtml(String(s).slice(0,24))}</span>`).join(""):"";
+    const who=x.kind==="blog"?`블로그 · ${x.date}`:(x.kind==="user"?`⭐${x.rating} · ${x.date}${x.rvN!=null?` · 작성자 이력 후기 ${x.rvN}${x.rvAvg!=null?`·평균 ${x.rvAvg}`:""}`:""}`:`리뷰 ${i+1}`);
+    const label=byI!=null?(promo?`<b style="color:var(--warn)">광고처럼 보이는 표현 있음</b>`:`<span style="color:var(--ok,#5ec27a)">특이 표현 없음</span>`):"";
+    return `<div style="padding:10px 0;border-top:1px solid rgba(255,255,255,.07)">
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:4px">${who}${label?` · ${label}`:""}</div>
+      <div style="font-size:13px;color:var(--tx);opacity:.85">${escapeHtml(x.text.slice(0,150))}${x.text.length>150?"…":""}</div>
+      ${promo?`<div style="margin-top:4px">${chips}</div>${a.note?`<div class="muted" style="margin-top:4px">${escapeHtml(String(a.note).slice(0,120))}</div>`:""}`:""}
+    </div>`; }).join("");
+  setHTML("rvOut",head+rows); }
+function revRun(pid,ptotal){
+  setHTML("rvOut",`<p class="muted">카카오맵 후기를 불러오는 중…</p>`);
+  revScrape(pid).then(list=>{
+    if(!list.length){ setHTML("rvOut",`<p class="muted">첫 화면에서 후기를 찾지 못했어요. 아래 “붙여넣기로 점검”을 이용해 보세요.</p>`); return; }
+    renderRevList("scrape",ptotal,list,null,GEMINI_KEY?"pending":"none");
+    if(GEMINI_KEY) llmTone(list.map(x=>x.text)).then(byI=>renderRevList("scrape",ptotal,list,byI,"done"))
+      .catch(()=>{ const el=document.getElementById("rvOut"); if(el) renderRevList("scrape",ptotal,list,null,"fail"); });
+  }).catch(()=>{ setHTML("rvOut",`<p class="muted">후기를 불러오지 못했어요(차단·네트워크). 아래 “붙여넣기로 점검”을 이용해 보세요.</p>`); }); }
+function openReviewCheck(pid,pname,ptotal){ if(!ADMIN) return;
+  const scrape=!!pid;
+  openSheet(`<h3>리뷰 점검 <span class="muted" style="font-size:13px">관리자 · 개인용</span></h3>
+  ${scrape
+    ?`<p class="muted" style="margin-bottom:10px;line-height:1.7"><b style="color:var(--tx2)">${escapeHtml(pname||"")}</b> — 카카오맵 <b style="color:var(--tx2)">첫 화면에 노출된 후기·블로그 발췌만</b> 가져와 표현을 살펴요(전체 후기가 아니에요).</p>`
+    :`<p class="muted" style="margin-bottom:10px;line-height:1.7">카카오맵·네이버에서 <b style="color:var(--tx2)">리뷰 글을 복사해 붙여넣으면</b>, 광고·대가성으로 <b style="color:var(--tx2)">보일 수 있는 표현</b>만 짚어줘요. 여러 개는 빈 줄로 구분.</p>
+  <div class="field"><textarea class="input" id="rvText" rows="7" placeholder="여기에 리뷰 글을 붙여넣으세요 (여러 개면 빈 줄로 구분)" style="resize:vertical"></textarea></div>
+  <button class="btn primary" onclick="runReviewCheck()">점검하기</button>`}
+  <div id="rvOut" style="margin-top:12px"></div>
+  <div style="margin-top:14px;padding:11px 13px;background:rgba(255,170,60,.09);border:1px solid rgba(255,170,60,.25);border-radius:11px">
+    <p class="muted" style="margin:0;line-height:1.75"><b style="color:var(--warn)">참고용 힌트일 뿐이에요.</b> 텍스트만으론 진짜 가짜인지 <b style="color:var(--tx2)">알 수 없고 정확도가 낮아요</b> — 광고처럼 보여도 실제론 정직한 후기일 수 있어요. <b style="color:var(--tx2)">판정이 아니라</b> “원본을 직접 볼지” 정하는 참고로만 쓰고, 특정 가게를 가짜로 단정하지 마세요. 입력·결과는 <b style="color:var(--tx2)">저장하지 않아요.</b></p>
+  </div>
+  ${scrape?`<button class="btn line" style="margin-top:10px" onclick="openReviewCheck()">붙여넣기로 점검</button>`:""}
+  <button class="btn line" style="margin-top:10px" onclick="closeSheet()">닫기</button>`);
+  if(scrape) revRun(pid,ptotal); }
+function runReviewCheck(){
+  const el=document.getElementById("rvText"); const raw=(el&&el.value||"").trim();
+  if(!raw){ setHTML("rvOut",`<p class="muted">리뷰 글을 붙여넣어 주세요.</p>`); return; }
+  if(!GEMINI_KEY){ setHTML("rvOut",`<p class="muted">Gemini 키가 필요해요(🔌 설정). 없이는 표현 점검을 못 해요.</p>`); return; }
+  let parts=raw.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+  if(parts.length<2){ parts=raw.split(/\n/).map(s=>s.trim()).filter(s=>s.length>=8); }
+  if(!parts.length) parts=[raw];
+  parts=parts.slice(0,15).map(s=>s.slice(0,700));
+  setHTML("rvOut",`<p class="muted">표현을 살펴보는 중…</p>`);
+  const items=parts.map(s=>({kind:"paste",rating:null,date:"",text:s,rvN:null,rvAvg:null}));
+  llmTone(parts).then(byI=>renderRevList("paste",null,items,byI,"done"))
+    .catch(()=>{ setHTML("rvOut",`<p class="muted">AI 표현 점검에 실패했어요(키·네트워크·한도). Gemini 키를 확인해 주세요(🔌 설정).</p>`); });
+}
 function saveKeys(){ KAKAO_KEY=document.getElementById("kKakao").value.trim(); ODSAY_KEY=document.getElementById("kOdsay").value.trim(); TOUR_KEY=(document.getElementById("kTour").value||"").trim(); GEMINI_KEY=(document.getElementById("kGemini").value||"").trim();
   localStorage.setItem("dongseoni_kakao",KAKAO_KEY); localStorage.setItem("dongseoni_odsay",ODSAY_KEY); localStorage.setItem("dongseoni_tour",TOUR_KEY); localStorage.setItem("dongseoni_gemini",GEMINI_KEY);
   let msg="API 연동 저장됨";
   const ael=document.getElementById("kAdmin"); if(ael){ const pw=(ael.value||"").trim(); if(pw){ if(pw===ADMIN_PW){ ADMIN=true; localStorage.setItem("dongseoni_admin","1"); msg="관리자 모드 켜짐 ⭐ · 저장됨"; } else { msg="관리자 비밀번호가 달라요 (미적용)"; } } }
-  for(const k in ODCACHE) delete ODCACHE[k]; for(const k in odPending) delete odPending[k]; for(const k in RECCACHE) delete RECCACHE[k]; kakaoReady=false; kakaoLoading=null; OD_OK=null; closeSheet(); toast(msg); if(KAKAO_KEY) loadKakao(); probeOdsay(); render(); }
+  for(const k in ODCACHE) delete ODCACHE[k]; for(const k in odPending) delete odPending[k]; for(const k in RECCACHE) delete RECCACHE[k]; for(const k in TOURCACHE) delete TOURCACHE[k]; for(const k in FESTCACHE) delete FESTCACHE[k]; kakaoReady=false; kakaoLoading=null; OD_OK=null; closeSheet(); toast(msg); if(KAKAO_KEY) loadKakao(); probeOdsay(); render(); }
 
 /* 딥링크/공유/시트 */
 function stepArg(s){ return `'${jsStr(s.name)}',${(+s.lat||0)},${(+s.lng||0)}`; }
@@ -1922,7 +2055,8 @@ function buildImport(){
   if(_inc&&_mine&&encodeTrip(_inc)!==encodeTrip(_mine)){ TRIP=_mine; _recvLater=_inc; }   /* 공유 링크 수신 → 부팅 후 요약 시트로(내 여행 보존) */
   else TRIP=_inc||_mine||blankTrip();
   KAKAO_KEY=localStorage.getItem("dongseoni_kakao")||DEFAULT_KAKAO; ODSAY_KEY=localStorage.getItem("dongseoni_odsay")||DEFAULT_ODSAY; TOUR_KEY=localStorage.getItem("dongseoni_tour")||DEFAULT_TOUR; GEMINI_KEY=localStorage.getItem("dongseoni_gemini")||DEFAULT_GEMINI; ADMIN=localStorage.getItem("dongseoni_admin")==="1"; if(KAKAO_KEY) loadKakao();
-  loadKoreaMap().then(km=>{KMAP=km;}).catch(()=>{}); loadCities(); probeOdsay();
+  /* 성능: 지도 GeoJSON·도시목록은 openDestPicker/showRegionCities가 lazy 로드(부팅 임계경로에서 제거). probeOdsay는 idle 지연 — OD_OK 판정 후 렌더 디바운스가 이동시간을 사후 반영 */
+  (window.requestIdleCallback||(f=>setTimeout(f,1500)))(()=>probeOdsay());
   const hasData=TRIP.days.some(d=>d.places.length>0||d.stay)||TRIP.arrival;
   onbDone=localStorage.getItem("dongseoni_onb")==="1"||hasData;
   const off=Math.round((new Date(todayStr())-new Date(TRIP.startDate))/86400000); curDay=(off>=0&&off<daysCount())?off:0;
@@ -1933,9 +2067,12 @@ function buildImport(){
     if(ue&&_share.url) ue.value=_share.url;
     if(te&&(!_share.url||body.length>=120)) te.value=_share.text;   /* URL 공유면 주소칸만(본문칸이 우선이라 둘 다 채우면 블로그를 안 읽음) */
     toast("공유받은 내용을 넣어뒀어요 — ‘분석하기’를 누르세요"); },80); },500);
-  const c=cityObj(); await ensureWeather(c.lat,c.lng); lastSkyMood=null; lastMascot=""; render();
+  /* 성능: 부팅 중복 render 제거 — 날씨는 render()가 dayCoords 기준으로 fetch하고 도착 시 재렌더(hadWX 콜백)하므로 여기서 await+재render 불필요.
+     멀티데이는 idle에 각 날 좌표를 프리페치(wxKey dedup) → 날짜 탭 전환 시 대기 없이 즉시 표시 */
+  if(daysCount()>1){ (window.requestIdleCallback||(f=>setTimeout(f,800)))(()=>{ const seen={};
+    for(let i=0;i<daysCount();i++){ const dc=dayCoords(i); const k=wxKey(dc.lat,dc.lng); if(seen[k]||WXCACHE[k]) continue; seen[k]=1; ensureWeather(dc.lat,dc.lng).catch(()=>{}); } }); }
 })();
-setInterval(()=>{ if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); },30000);
+setInterval(()=>{ if(document.hidden) return; if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); },30000);   /* 백그라운드 틱 스킵(배터리) — 복귀 보정은 visibilitychange에서 */
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
 let deferredPrompt=null;
 function installDismiss(){ const b=document.querySelector(".a2hs"); if(b)b.remove(); try{localStorage.setItem("dongseoni_a2hs","1");}catch(e){} }
