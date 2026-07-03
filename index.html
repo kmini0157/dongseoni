@@ -202,6 +202,10 @@ select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .citychips button.cur{background:var(--accent);border-color:var(--accent);color:#fff}
 .kmap text{font-size:13px;font-weight:700;fill:#fff;pointer-events:none;text-anchor:middle}
 .citychips{display:flex;flex-wrap:wrap;gap:9px;margin-top:4px}
+details.setbox summary{cursor:pointer;font-weight:700;padding:6px 0;list-style:none;color:var(--tx2)}
+details.setbox summary::-webkit-details-marker{display:none}
+details.setbox summary::after{content:"▾";float:right;opacity:.5}
+details.setbox[open] summary::after{content:"▴"}
 .citychips button{font-size:14px;border:1px solid var(--line2);background:rgba(255,255,255,.05);border-radius:12px;padding:11px 15px;color:var(--tx);font-weight:600}
 .citychips button.on{background:var(--accent);border-color:var(--accent)}.citychips button:active{transform:scale(.96)}
 .toast{position:fixed;left:50%;bottom:98px;transform:translateX(-50%) translateY(8px);background:#fff;color:#111;font-size:13px;font-weight:700;padding:11px 18px;border-radius:999px;z-index:80;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.3)}
@@ -251,7 +255,7 @@ const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 Java
 const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
 const DEFAULT_TOUR  = "71e042381154b4346c64a75d139ceaab665d6174012adf26f2ddfbeefe6194ae";  /* ← 한국관광공사 TourAPI(data.go.kr). 도메인잠금 없음 — 쿼터(1,000/일) 도용 시 data.go.kr에서 재발급 후 교체 */
 const DEFAULT_GEMINI= "AIzaSyCQBAY_1fk4axEsxyi_PTHcU1a20jHB__8";  /* ← Gemini(블로그 AI 추출). 구글 콘솔에서 HTTP 리퍼러 제한(kmini0157.github.io/*) 권장 — 걸면 도용 차단 */
-const APP_VER = "2026-07-03q";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
+const APP_VER = "2026-07-03r";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
 let ADMIN = false; const ADMIN_PW = "KKM";  /* 관리자(개인용): 별점·리뷰수 정렬 잠금 해제. 공개/공유 링크 경로엔 노출 안 됨 */
 
 const REGIONS9=["수도권","강원","충북","충남","전북","전남","경북","경남","제주"];
@@ -434,6 +438,14 @@ function hashTrip(){ const m=location.hash.match(/#t=(.+)$/); if(m){ const t=mig
 function lsTrip(){ const e=activeEntry(); if(e){ const t=migrate(e.trip); if(t&&Array.isArray(t.days)) return t; } return null; }
 function load(){ return hashTrip()||lsTrip(); }
 function newTrip(){ persist(); const id=uid(); const t=blankTrip(); TRIPS.push({id,name:"여행 "+(TRIPS.length+1),updatedAt:Date.now(),trip:t}); ACTIVE=id; TRIP=t; curDay=0; writeTrips(); closeSheet(); lastSkyMood=null; setTab("edit",false); render(); toast("새 여행 시작"); }
+function demoTrip(){ /* 온보딩 "예시 먼저 보기" — 완성된 타임라인(끼니·이동시간·날씨)을 1탭에. 별도 여행 엔트리라 기존 데이터 무회귀, 📂에서 삭제 가능 */
+  if(TRIPS.length) persist();   /* 빈 부트 TRIP 유령저장 방지 — 기존 여행 있을 때만 보존 */
+  const id=uid(), t=blankTrip(); TRIPS.push({id,name:"부산 예시",updatedAt:Date.now(),trip:t}); ACTIVE=id; TRIP=t; curDay=0;
+  const S=CITY["부산"].seed, mk=i=>mkPlace(S[i][0],S[i][1],S[i][2]);
+  t.days[0].places=[0,5,2,6].map(mk); t.days[1].places=[4,3,7].map(mk);   /* Day1 해운대·자갈치(eat)·감천·서면국밥(eat) / Day2 용두산·태종대·해동용궁사 */
+  optimizeDay(0,true); optimizeDay(1,true);
+  onbDone=true; onbStep=0; try{ localStorage.setItem("dongseoni_onb","1"); }catch(e){}
+  writeTrips(); lastSkyMood=null; setTab("timeline",false); render(); toast("부산 예시 일정이에요 — 내 여행은 상단 📂에서 새로 시작"); }
 function switchTrip(id){ if(id===ACTIVE){ closeSheet(); return; } persist(); const e=TRIPS.find(t=>t.id===id); if(!e) return; ACTIVE=id; TRIP=migrate(e.trip)||blankTrip(); curDay=0; writeTrips(); closeSheet(); lastSkyMood=null; render(); toast(e.name+"(으)로 전환"); }
 function renameTrip(id){ const e=TRIPS.find(t=>t.id===id); if(!e) return; const n=prompt("여행 이름",e.name); if(n!=null){ e.name=String(n).trim().slice(0,40)||e.name; writeTrips(); openTrips(); } }
 function deleteTrip(id){ const e=TRIPS.find(t=>t.id===id); if(!e) return; if(!confirm("'"+e.name+"' 여행을 삭제할까요?")) return;
@@ -622,9 +634,11 @@ function setDay(i){ curDay=Math.max(0,Math.min(i,daysCount()-1)); simMinutes=nul
 function renderEmpty(){ const O=ONB[onbStep];
   return `<div class="onb"><div id="onbMascot" onclick="onbAdvance()">${mascot(O.mood,false,O.emo)}</div>
     <div class="bubble anim1" id="onbBubble">${O.say}</div>
-    <div class="onb-dots">${ONB.map((_,i)=>`<i class="${i===onbStep?'on':''}"></i>`).join("")}</div>
-    <button class="btn primary" onclick="onbAdvance()" style="max-width:280px">${onbStep<ONB.length-1?"다음 →":"동선이랑 시작하기 →"}</button>
-    <p class="muted" style="margin-top:14px">전국 어디든 · 무료 · 자동 저장</p></div>`; }
+    <p class="muted" style="margin:14px 0 6px">어디로 떠나세요?</p>
+    <div class="citychips" style="justify-content:center">${["서울","부산","제주시","경주시","강릉시","여수시"].map(c=>`<button onclick="onbPick('${c}')">${c}</button>`).join("")}</div>
+    <button class="btn line" onclick="onbAdvance()" style="max-width:280px;margin-top:10px">지도에서 다른 도시 고르기</button>
+    <button class="btn line" onclick="demoTrip()" style="max-width:280px;margin-top:8px">부산 1박2일 예시 먼저 보기</button>
+    <p class="muted" style="margin-top:14px">가입 없음 · 무료 · 데이터는 이 기기에만 저장</p></div>`; }
 
 /* ----- 홈 ----- */
 function nowCardData(cur,next,at){
@@ -730,43 +744,36 @@ function renderTimeline(){
       ${s.kind==="place"?`<div class="move"><button onclick="movePlace('${s.place.id}',-1)">▲</button><button onclick="movePlace('${s.place.id}',1)">▼</button></div>`:`<div class="move"></div>`}</div>`;
   });
   html+=`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">최적 코스로 자동 정리</button>
-    <button class="btn line" style="margin-top:8px" onclick="autoCluster()">권역끼리만 묶기</button>
+    <button class="btn line" style="margin-top:8px" onclick="autoCluster()">같은 동네끼리 묶기</button>
     <button class="btn line" style="margin-top:8px" onclick="openRecap()">여행 리캡 카드 — 이미지로 공유</button></div>`; return html;
 }
 function typeIc(s){ if(s.kind==="air")return "🛬"; if(s.kind==="stay")return "🏨"; return TYPE_META[s.place.type].ic; }
 function gotoEdit(){ setTab("edit"); }
 
 /* ----- 편집 ----- */
+let settingsOpen=false;
+function setSettingsOpen(v){ settingsOpen=v; }   /* 인라인 ontoggle은 top-level let에 직접 대입 못 하므로 함수 래퍼(코드베이스 관례) */
 function renderEdit(){
   const day=TRIP.days[curDay];
   return `${destBar()}${daySwitcher()}<div class="topbar"><h2>입력 · 편집</h2><button class="icbtn" onclick="shareLink()" title="공유 링크">🔗</button></div><div class="wrap">
     <div class="assist"><div style="flex:none">${mascot(skyMoodNow(),false,assistEmo(),true)}</div><div class="ab">${assistantTip()}</div></div>
     <div class="sec-title">여행지</div>
     <button class="btn line" onclick="openDestPicker()">지도에서 도시 고르기 — 현재: ${escapeHtml(dest())}</button>
-    <div class="sec-title">여행 설정</div>
-    <div class="field"><label>여행 시작일</label><input class="input" type="date" value="${TRIP.startDate}" onchange="setField('startDate',this.value)"></div>
-    <div class="field"><label>기간</label><div class="stepper"><button onclick="setNights(-1)">−</button><span class="v">${TRIP.nights}박 ${TRIP.nights+1}일</span><button onclick="setNights(1)">＋</button></div></div>
-    ${["breakfast","lunch","dinner"].map(m=>`<div class="field"><label style="display:flex;justify-content:space-between;align-items:center">${mealLabel(m)} 기본
-        <button class="ck${mealOn(m)?" on":""}" style="padding:4px 11px;font-size:12px" onclick="toggleMealOn('${m}')">${mealOn(m)?"먹어요":"안 먹어요"}</button></label>
-      <input class="input" type="time" value="${TRIP.meal[m]||(m==="breakfast"?"08:00":m==="lunch"?"12:00":"18:00")}" onchange="setMeal('${m}',this.value)" ${mealOn(m)?"":"disabled style=opacity:.35"}></div>`).join("")}
-    <div class="field"><label>막차 마지노선 <span class="muted">(이 시각보다 마지막 일정이 늦으면 경고)</span></label><input class="input" type="time" value="${TRIP.lastBack||"23:30"}" onchange="setField('lastBack',this.value)"></div>
-    ${curDay===0?`<div class="field"><label>도착 (첫날)</label>
-      <input class="input" placeholder="예: 김해공항 / 부산역 / 서울역" value="${TRIP.arrival?escapeHtml(TRIP.arrival.name):""}" onchange="setArrival('name',this.value)">
-      <div class="row2" style="margin-top:8px"><select class="input" onchange="setArrival('area',this.value)">${areaKeys().map(r=>`<option ${TRIP.arrival&&TRIP.arrival.area===r?"selected":""}>${r}</option>`).join("")}</select>
-        <input class="input" type="time" value="${TRIP.arrival?TRIP.arrival.time:"10:30"}" onchange="setArrival('time',this.value)"></div></div>`:""}
-    <div class="sec-title">Day ${curDay+1} · ${mdLabel(curDate())}</div>
-    <div class="field"><label>이 날 시작 시각</label><input class="input" type="time" value="${day.start}" onchange="setDayStart(this.value)"></div>
-    ${day.stay?`<div class="added"><div class="i" style="background:rgba(167,139,250,.18)">🏨</div><div class="nm"><b>${escapeHtml(day.stay.name)}</b><span>오늘 밤 숙소 · ${escapeHtml(day.stay.area)}</span></div><button class="del" onclick="removeStay()">×</button></div>`:`<p class="muted" style="margin:0 0 10px">오늘 밤 숙소: 아래 '직접 추가'에서 종류를 '숙소'로 선택해 넣으세요.</p>`}
     <div class="sec-title">추천 받기</div>
     <div class="recbtn"><button onclick="openMustVisit()" style="background:linear-gradient(135deg,#ffb84d,#ff8a3d);border-color:#ff8a3d;color:#1a1205;font-weight:800">${escapeHtml(dest())} 꼭 가야 할 곳 한 번에 담기</button></div>
     <div class="recbtn"><button onclick="openRec('eat')">맛집 추천</button><button onclick="openRec('play')">놀거리·볼거리</button></div>
     <div class="recbtn"><button onclick="openImport()" style="background:rgba(63,227,154,.12);border-color:rgba(63,227,154,.4);color:#aef3d0">블로그 여행코스 붙여넣어 가져오기</button></div>
     <div class="sec-title">${escapeHtml(dest())} 빠른 추가</div>
     <div class="quick">${seedOf().length?seedOf().map((s,i)=>`<button onclick="addSeed(${i})">＋ ${escapeHtml(s[0])}</button>`).join(""):`<span class="muted">이 도시 빠른추가는 '추천 받기'(키 등록 시 실시간)로 채워보세요.</span>`}</div>
+    <div class="sec-title">Day ${curDay+1} · ${mdLabel(curDate())}</div>
+    <div class="field"><label>이 날 시작 시각</label><input class="input" type="time" value="${day.start}" onchange="setDayStart(this.value)"></div>
+    ${day.stay?`<div class="added"><div class="i" style="background:rgba(167,139,250,.18)">🏨</div><div class="nm"><b>${escapeHtml(day.stay.name)}</b><span>오늘 밤 숙소 · ${escapeHtml(day.stay.area)}</span></div><button class="del" onclick="removeStay()">×</button></div>`:`<p class="muted" style="margin:0 0 10px">오늘 밤 숙소: 아래 '직접 추가'에서 종류를 '숙소'로 선택해 넣으세요.</p>`}
+    <div id="placeList">${renderPlaceList()}</div>
+    ${day.places.length>=2?`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">최적 코스로 자동 정리</button><p class="muted" style="margin:6px 2px 0;font-size:12px">맛집은 아침·점심·저녁 시간에 자동 배정, 볼거리는 가까운 순으로 엮어 동선을 최소화해요.</p>`:""}
     <div class="sec-title">직접 추가 (Day ${curDay+1})</div>
     <div class="field" style="position:relative"><label>이름 <span class="muted">${KAKAO_KEY?"· 입력하면 카카오 자동완성":""}</span></label><input class="input" id="nName" placeholder="예: 해운대해수욕장 — 입력하면 추천" autocomplete="off" oninput="manualSearch(this.value)"><div id="nSuggest" class="suggest"></div></div>
     <div class="row2"><div class="field"><label>종류</label><select class="input" id="nType"><option value="see">가고싶은곳</option><option value="eat">맛집</option><option value="stay">숙소(오늘 밤)</option></select></div>
-      <div class="field"><label>권역</label><select class="input" id="nRegion">${areaKeys().map(r=>`<option>${r}</option>`).join("")}</select></div></div>
+      <div class="field"><label>동네</label><select class="input" id="nRegion">${areaKeys().map(r=>`<option>${r}</option>`).join("")}</select></div></div>
     <div id="eatFields" class="hide">
       <div class="field"><label>끼니 <span class="muted">(${["breakfast","lunch","dinner"].filter(mealOn).map(m=>mealLabel(m)+" "+mealTime(m)).join(" / ")||"모두 건너뜀"} 기본)</span></label>
         <div class="checks" id="ckMeal">${["breakfast","lunch","dinner"].filter(mealOn).map(m=>`<button class="ck" data-meal="${m}">${mealLabel(m)}</button>`).join("")}<button class="ck on" data-meal="">지정 안 함</button></div></div>
@@ -776,9 +783,19 @@ function renderEdit(){
       <div class="checks" style="margin-bottom:12px"><button class="ck" id="ckReserve">예약 필수</button><button class="ck" id="ckCash">현금만</button><button class="ck" id="ckIndoor">실내</button></div></div>
     <div id="seeIndoor" class="field hide"><label>실내/야외</label><div class="checks"><button class="ck on" id="seeOut" onclick="toggleSeeIndoor(false)">야외</button><button class="ck" id="seeIn" onclick="toggleSeeIndoor(true)">실내</button></div></div>
     <button class="btn primary" onclick="addManual()">＋ 추가</button>
-    <div class="sec-title">Day ${curDay+1} 추가된 곳 (${day.places.length})</div>
-    <div id="placeList">${renderPlaceList()}</div>
-    ${day.places.length>=2?`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">최적 코스로 자동 정리</button><p class="muted" style="margin:6px 2px 0;font-size:12px">맛집은 아침·점심·저녁 시간에 자동 배정, 볼거리는 가까운 순으로 엮어 동선을 최소화해요.</p>`:""}
+    <details class="field setbox" ${settingsOpen?"open":""} ontoggle="setSettingsOpen(this.open)" style="margin-top:16px">
+      <summary>여행 설정 — ${TRIP.startDate} · ${TRIP.nights}박 ${TRIP.nights+1}일</summary>
+      <div class="field"><label>여행 시작일</label><input class="input" type="date" value="${TRIP.startDate}" onchange="setField('startDate',this.value)"></div>
+      <div class="field"><label>기간</label><div class="stepper"><button onclick="setNights(-1)">−</button><span class="v">${TRIP.nights}박 ${TRIP.nights+1}일</span><button onclick="setNights(1)">＋</button></div></div>
+      ${["breakfast","lunch","dinner"].map(m=>`<div class="field"><label style="display:flex;justify-content:space-between;align-items:center">${mealLabel(m)} 기본
+          <button class="ck${mealOn(m)?" on":""}" style="padding:4px 11px;font-size:12px" onclick="toggleMealOn('${m}')">${mealOn(m)?"먹어요":"안 먹어요"}</button></label>
+        <input class="input" type="time" value="${TRIP.meal[m]||(m==="breakfast"?"08:00":m==="lunch"?"12:00":"18:00")}" onchange="setMeal('${m}',this.value)" ${mealOn(m)?"":"disabled style=opacity:.35"}></div>`).join("")}
+      <div class="field"><label>막차 마지노선 <span class="muted">(이 시각보다 마지막 일정이 늦으면 경고)</span></label><input class="input" type="time" value="${TRIP.lastBack||"23:30"}" onchange="setField('lastBack',this.value)"></div>
+      ${curDay===0?`<div class="field"><label>도착 (첫날)</label>
+        <input class="input" placeholder="예: 김해공항 / 부산역 / 서울역" value="${TRIP.arrival?escapeHtml(TRIP.arrival.name):""}" onchange="setArrival('name',this.value)">
+        <div class="row2" style="margin-top:8px"><select class="input" onchange="setArrival('area',this.value)">${areaKeys().map(r=>`<option ${TRIP.arrival&&TRIP.arrival.area===r?"selected":""}>${r}</option>`).join("")}</select>
+          <input class="input" type="time" value="${TRIP.arrival?TRIP.arrival.time:"10:30"}" onchange="setArrival('time',this.value)"></div></div>`:""}
+    </details>
     <button class="btn line" style="margin-top:16px" onclick="resetTrip()">전체 초기화</button>
     <p class="muted" style="margin-top:12px;text-align:center">자동 저장됨 · 공유 링크로 동행자와 공유 · <a onclick="openSettings()" style="color:var(--tx3)">API 직접설정</a></p></div>`;
 }
@@ -875,7 +892,7 @@ function addManual(){ const name=document.getElementById("nName").value.trim(); 
   MSEL=null; setHTML("nSuggest",""); save(); render(); toast(name+" 추가됨"); }
 function removePlace(id){ const p=TRIP.days[curDay].places.find(x=>x.id===id); snapshot(); TRIP.days[curDay].places=TRIP.days[curDay].places.filter(x=>x.id!==id); save(); render(); toast((p?p.name:"장소")+" 삭제됨", true); }
 function movePlace(id,dir){ const arr=TRIP.days[curDay].places, i=arr.findIndex(p=>p.id===id), j=i+dir; if(i<0||j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); render(); }
-function autoCluster(){ const arr=TRIP.days[curDay].places, order=[],byR={}; arr.forEach(p=>{ if(!byR[p.area]){byR[p.area]=[];order.push(p.area);} byR[p.area].push(p); }); TRIP.days[curDay].places=order.flatMap(r=>byR[r]); save(); render(); toast("권역끼리 정리했어요"); }
+function autoCluster(){ const arr=TRIP.days[curDay].places, order=[],byR={}; arr.forEach(p=>{ if(!byR[p.area]){byR[p.area]=[];order.push(p.area);} byR[p.area].push(p); }); TRIP.days[curDay].places=order.flatMap(r=>byR[r]); save(); render(); toast("같은 동네끼리 정리했어요"); }
 /* ✨ 최적 코스: 맛집을 끼니시간에 자동배정 + 볼거리를 가까운 순으로 끼워넣어 동선 최소화(끼니 시간순 보존 2-opt) */
 const MO={breakfast:0,lunch:1,dinner:2};
 function mealLabel(m){ return m==="breakfast"?"아침":m==="lunch"?"점심":m==="dinner"?"저녁":""; }
@@ -1076,7 +1093,10 @@ function addMustVisit(){ const list=MVLIST||[]; let n=0; snapshot();
     const coords=(p.x&&p.y)?{lat:+p.y,lng:+p.x}:null; const area=coords?nearestArea(coords.lat,coords.lng):(p.area||areaKeys()[0]);
     if(recTarget==="wish"){ if(pushWish({id:uid(),name:p.name,type:"see",lat:coords?coords.lat:areaCoords(area).lat,lng:coords?coords.lng:areaCoords(area).lng,area,city:dest()})) n++; return; }
     TRIP.days[curDay].places.push(mkPlace(p.name,"see",area,false,coords?{lat:coords.lat,lng:coords.lng}:null)); n++; });
-  save(); closeSheet(); render(); toast(n+(recTarget==="wish"?"곳을 구상에 담았어요":"곳을 Day "+(curDay+1)+"에 담았어요")); if(n) confetti(); }
+  save(); closeSheet();
+  if(recTarget!=="wish"&&n>=2){ optimizeDay(curDay,true); setTab("timeline"); toast(n+"곳을 담아 최적 코스로 정리했어요",true); }   /* 담기→정렬→타임라인 이동 원스톱(setTab이 렌더). 1091 snapshot이 담기+정렬 통째 복원(silent optimizeDay는 자체 snapshot 생략) */
+  else { render(); toast(n+(recTarget==="wish"?"곳을 구상에 담았어요":"곳을 Day "+(curDay+1)+"에 담았어요")); }
+  if(n) confetti(); }
 /* 행사 상세 — 목록의 기간(1.1–12.31)은 시즌 범위일 뿐, "매주 토요일 20시" 같은 실제 운영 일정은 상세 API(detailIntro2)에만 있음 */
 const FESTINFO={};
 function plainTxt(s){ return String(s||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").trim(); }
@@ -1170,7 +1190,7 @@ function openRec(kind,tgt){ recTarget=tgt||"day"; const regs=areaKeys();
     showRec(r,kind); return; }
   const opts=regs.map(r=>`<button onclick="showRec('${jsStr(r)}','${kind}')">${escapeHtml(r)}</button>`).join("");
   openSheet(`${head}
-    <p class="muted" style="margin-bottom:10px">권역을 고르면 ${dst}. ${kind!=="eat"?(KAKAO_KEY?"인기·추천순":TOUR_KEY?"관광공사":"큐레이션"):(KAKAO_KEY?"Kakao 실시간":"큐레이션")} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p>
+    <p class="muted" style="margin-bottom:10px">동네를 고르면 ${dst}. ${kind!=="eat"?(KAKAO_KEY?"인기·추천순":TOUR_KEY?"관광공사":"큐레이션"):(KAKAO_KEY?"Kakao 실시간":"큐레이션")} · <b style="color:var(--tx2)">영업시간·휴무는 직접 확인</b></p>
     <div class="quick" style="margin-bottom:6px">${opts}</div>${recBaseBar()}<div id="recList"></div>`); }
 /* 🏞️ 한국관광공사 TourAPI(KorService2) — 놀거리·명소 공식 데이터(사진·소개). 브라우저 직접호출 CORS OK */
 function tourTypeLabel(c){ return ({12:"관광지",14:"문화시설",15:"축제·공연",25:"여행코스",28:"레포츠",32:"숙박",38:"쇼핑",39:"음식점"})[c]||"관광"; }
@@ -1282,13 +1302,13 @@ function playRec(region,t,ck2,myReq){
     });
   });
 }
-/* ── 추천 거리 기준점 — 기본=권역 중심, 사용자가 '내 위치(GPS)' 또는 '직접 입력(자동완성)'으로 변경 가능 ── */
+/* ── 추천 거리 기준점 — 기본=동네 중심, 사용자가 '내 위치(GPS)' 또는 '직접 입력(자동완성)'으로 변경 가능 ── */
 let recBase=null, lastRec=null, RBSUG=[], rbT=null;
 function fmtDist(m){ return m>=1000?(m/1000).toFixed(1)+"km":m+"m"; }
 function applyBaseDist(list){ if(!recBase) return; list.forEach(p=>{ if(p.x&&p.y) p.dist=Math.round(haversine(recBase,{lat:+p.y,lng:+p.x})*1000); }); }
 function recBaseBar(){ return `<div style="margin:0 0 10px">
     <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:13px;color:var(--tx2)">거리 기준
-      <b id="rbLab" style="color:var(--tx)">${recBase?escapeHtml(recBase.name):"권역 중심"}</b>
+      <b id="rbLab" style="color:var(--tx)">${recBase?escapeHtml(recBase.name):"동네 중심"}</b>
       <button class="ck" style="padding:4px 10px;font-size:12px" onclick="rbGPS()">내 위치</button>
       <button class="ck" style="padding:4px 10px;font-size:12px" onclick="rbToggle()">직접 입력</button>
       <button class="ck" id="rbClearBtn" style="padding:4px 10px;font-size:12px;display:${recBase?"inline-block":"none"}" onclick="rbSet(null)">해제</button></div>
@@ -1296,10 +1316,10 @@ function recBaseBar(){ return `<div style="margin:0 0 10px">
   </div>`; }
 function rbToggle(){ const b=document.getElementById("rbBox"); if(b) b.style.display=(b.style.display==="none")?"block":"none"; const el=document.getElementById("rbName"); if(el) el.focus(); }
 function rbSet(base){ recBase=base;
-  const l=document.getElementById("rbLab"); if(l) l.textContent=base?base.name:"권역 중심";
+  const l=document.getElementById("rbLab"); if(l) l.textContent=base?base.name:"동네 중심";
   const cb=document.getElementById("rbClearBtn"); if(cb) cb.style.display=base?"inline-block":"none";
   if(lastRec&&document.getElementById("recList")) showRec(lastRec.r,lastRec.k);
-  toast(base?("거리 기준: "+base.name):"거리 기준: 권역 중심"); }
+  toast(base?("거리 기준: "+base.name):"거리 기준: 동네 중심"); }
 function rbGPS(){ if(!navigator.geolocation){ toast("이 기기는 위치를 지원하지 않아요"); return; }
   navigator.geolocation.getCurrentPosition(p=>rbSet({name:"내 위치",lat:p.coords.latitude,lng:p.coords.longitude}),
     ()=>toast("위치를 가져올 수 없어요 — 권한을 확인하세요"),{enableHighAccuracy:true,timeout:8000,maximumAge:60000}); }
@@ -1354,13 +1374,13 @@ function showRec(region,kind){ const t=kind==="eat"?"eat":"see"; const ck2=regio
       else kakaoFailMsg(region,kind,t,r.err||"empty"); }); }); }
 function kakaoFailMsg(region,kind,t,reason){
   const tip = reason==="empty"
-    ? `이 권역엔 결과가 적어요. 다른 권역을 눌러보세요.`
+    ? `이 동네엔 결과가 적어요. 다른 동네를 눌러보세요.`
     : `<b style="color:var(--warn)">Kakao 검색이 안 돼요.</b> developers.kakao.com에서 확인:<br>① 플랫폼 → Web 도메인 = <b style="color:var(--tx2)">${escapeHtml(location.origin)}</b> (경로 없이!)<br>② 제품 설정 → 카카오맵 <b style="color:var(--tx2)">활성화 ON</b><br>③ 키가 <b style="color:var(--tx2)">JavaScript 키</b> 맞는지`;
   setHTML("recList",`<p class="muted" style="line-height:1.85;margin:4px 2px 12px">${tip}</p>`+curatedHtml(region,kind,t)); }
 function curatedHtml(region,kind,t){ const seed=seedOf().filter(s=>s[2]===region && (kind==="eat"?s[1]==="eat":s[1]==="see"));
   return `<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 추천 ${kind==="eat"?"맛집":"놀거리"}${KAKAO_KEY?"":" (큐레이션)"}</div>`+
     (seed.length?seed.map(s=>`<div class="poi"><div class="nm"><b>${escapeHtml(s[0])}</b><span>${escapeHtml(region)}</span></div>
-      <button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(s[0])}')">지도</button><button class="add" onclick="addRec('${jsStr(s[0])}','${t}','${jsStr(region)}')">＋추가</button></div>`).join(""):`<p class="muted">이 권역 큐레이션이 적어요. Kakao 키를 등록하면 실시간으로 채워져요.</p>`); }
+      <button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(s[0])}')">지도</button><button class="add" onclick="addRec('${jsStr(s[0])}','${t}','${jsStr(region)}')">＋추가</button></div>`).join(""):`<p class="muted">이 동네 큐레이션이 적어요. Kakao 키를 등록하면 실시간으로 채워져요.</p>`); }
 function curatedRec(region,kind,t){ setHTML("recList", curatedHtml(region,kind,t)); }
 function pushWish(w){ if(!TRIP.wish) TRIP.wish=[];
   if(TRIP.wish.length>=60){ toast("60곳까지 담을 수 있어요"); return false; }
@@ -1566,8 +1586,9 @@ function geoStop(){ if(geoWatch!=null){ try{ navigator.geolocation.clearWatch(ge
 function toggleGeo(){ if(geoWatch!=null){ geoStop(); localStorage.removeItem("dongseoni_geo"); toast("도착 자동 감지 꺼짐"); } else geoStart(false); if(screen==="home") render(); }
 document.addEventListener("visibilitychange",()=>{ if(document.hidden){ if(geoWatch!=null){ geoStop(); geoPaused=true; } } else { if(geoPaused){ geoPaused=false; geoStart(true); } if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); } });   /* 숨김 시 배터리 절약 · 복귀 시 시계 즉시 보정(인터벌 백그라운드 스킵 보완) */
 try{ if(localStorage.getItem("dongseoni_geo")==="1"&&navigator.permissions&&navigator.geolocation){ navigator.permissions.query({name:"geolocation"}).then(st=>{ if(st.state==="granted"){ geoStart(true); if(screen==="home") render(); } }).catch(()=>{}); } }catch(e){}   /* 이전에 켰고 권한 있으면 조용히 재개 */
-const ONB=[{say:"안녕! 난 <b>동선이</b>야 🧭",mood:"clear",emo:"happy"},{say:"전국 어디로 떠나? 도시를 골라줘",mood:"cloud",emo:"happy"},{say:"가고 싶은 곳·맛집 넣으면<br>동선을 딱 짜줄게!",mood:"clear",emo:"heart"}];
-function onbAdvance(){ if(onbStep<ONB.length-1){ onbStep++; render(); } else { onbDone=true; localStorage.setItem("dongseoni_onb","1"); onbStep=0; setTab("edit"); setTimeout(openDestPicker,200); } }
+const ONB=[{say:"가고 싶은 곳만 넣으면<br>날씨·이동시간·끼니까지 맞춰<br><b>동선을 자동으로</b> 짜 드려요",mood:"clear",emo:"happy"}];
+function onbAdvance(){ if(onbStep<ONB.length-1){ onbStep++; render(); } else { onbDone=true; try{localStorage.setItem("dongseoni_onb","1");}catch(e){} onbStep=0; setTab("edit"); setTimeout(openDestPicker,200); } }
+function onbPick(c){ onbDone=true; try{localStorage.setItem("dongseoni_onb","1");}catch(e){} onbStep=0; setTab("edit",false); setDest(c); }   /* 첫 화면 도시 칩 → 검증된 setDest 경로 재사용(저장·렌더·토스트 포함) */
 function assistantTip(){ const day=TRIP.days[curDay];
   if(TRIP.days.every(d=>d.places.length===0)) return escapeHtml(dest())+" 여행이네! Day "+(curDay+1)+"에 가고 싶은 곳부터 넣어볼까?";
   if(!TRIP.days.some(d=>d.places.some(p=>p.type==="eat"))) return "맛집도 넣으면 점심·저녁 시각에 맞춰 짜줄게";
@@ -1829,7 +1850,7 @@ function openRoute(name,lat,lng){ const url=(lat&&lng)?`https://map.kakao.com/li
 function openPlanB(area){ const list=INDOOR[area]||[];
   const body=list.length?list.map(n=>`<div class="poi"><div class="nm"><b>${escapeHtml(n)}</b><span>${escapeHtml(area)} · 실내</span></div><button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(n)}')">길찾기</button></div>`).join("")
     :`<p class="muted">${escapeHtml(area)} 실내 후보가 등록 안 됐어요. <button class="add" style="margin-left:4px" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(area+" 실내")}')">카카오맵 검색</button></p>`;
-  openSheet(`<h3>지금 근처 실내 (Plan B)</h3><p class="muted" style="margin-bottom:10px">비 오거나 일정이 어긋날 때 — ${escapeHtml(area)} 권역에서 비 안 맞는 곳.</p>${body}`); }
+  openSheet(`<h3>지금 근처 실내 (Plan B)</h3><p class="muted" style="margin-bottom:10px">비 오거나 일정이 어긋날 때 — ${escapeHtml(area)} 근처에서 비 안 맞는 곳.</p>${body}`); }
 function openSOS(){ openSheet(`<h3>긴급</h3>
   <div class="poi"><div class="nm"><b>119</b><span>화재·구급</span></div><button class="go" onclick="openLink('tel:119')">전화</button></div>
   <div class="poi"><div class="nm"><b>112</b><span>경찰</span></div><button class="go" onclick="openLink('tel:112')">전화</button></div>
@@ -1865,12 +1886,15 @@ function showQR(){ const box=document.getElementById("qrBox"); if(!box) return; 
 
 /* ── 일정 수신(받기) — confirm() 대신 요약 시트. 수락 시 '새 여행'으로 추가(기존 여행 보존) ── */
 let RECV=null;
-function tripSummary(t){ const days=(t.days||[]).length, places=(t.days||[]).reduce((a,d)=>a+((d.places||[]).length),0); return { dest:t.dest||"여행", days, places, start:t.start||"" }; }
+function tripSummary(t){ const days=(t.days||[]).length, places=(t.days||[]).reduce((a,d)=>a+((d.places||[]).length),0); return { dest:(t.dest&&t.dest.city)?t.dest.city:(typeof t.dest==="string"?t.dest:"여행"), days, places, start:t.start||"" }; }   /* v3 dest는 객체 {city,region} — .city 추출(안 하면 "[object Object]") */
 function openRecvSheet(t){ RECV=t; const s=tripSummary(t);
+  const all=(t.days||[]).reduce((a,d)=>a.concat(d.places||[]),[]);   /* 전 일차 평탄화(Day1 빈 멀티데이 대응) */
+  const pv=all.slice(0,4).map(p=>`<div class="muted" style="margin-top:3px">· ${escapeHtml(p.name)}</div>`).join("")+(all.length>4?`<div class="muted" style="margin-top:3px">외 ${all.length-4}곳</div>`:"");
   openSheet(`<h3>공유받은 일정</h3>
     <div style="background:rgba(255,255,255,.05);border:1px solid var(--line2);border-radius:14px;padding:14px 16px;margin:10px 0 14px">
       <b style="font-size:17px">${escapeHtml(s.dest)}</b>
       <div class="muted" style="margin-top:4px">${s.days}일 일정 · 장소 ${s.places}곳${s.start?(" · "+escapeHtml(s.start)+" 출발"):""}</div>
+      ${pv?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line2)">${pv}</div>`:""}
     </div>
     <button class="btn primary" onclick="acceptShared()">내 여행에 추가</button>
     <button class="btn line" style="margin-top:8px" onclick="dismissShared()">받지 않기 (내 여행 유지)</button>
@@ -2055,7 +2079,12 @@ function buildImport(){
   const _inc=hashTrip(), _mine=lsTrip();
   let _recvLater=null;
   if(_inc&&_mine&&encodeTrip(_inc)!==encodeTrip(_mine)){ TRIP=_mine; _recvLater=_inc; }   /* 공유 링크 수신 → 부팅 후 요약 시트로(내 여행 보존) */
-  else TRIP=_inc||_mine||blankTrip();
+  else{ TRIP=_inc||_mine||blankTrip();
+    if(_inc&&!_mine){ /* 첫 방문자가 공유 링크로 진입 → 즉시 영속(일회용 뷰어→사용자 전환) */
+      ACTIVE=uid(); const c=_inc.dest&&_inc.dest.city?String(_inc.dest.city).slice(0,20):"";
+      TRIPS.push({id:ACTIVE,name:c?c+" (공유)":"공유받은 여행",updatedAt:Date.now(),trip:_inc}); writeTrips();
+      try{ localStorage.setItem("dongseoni_onb","1"); }catch(e){}
+      setTimeout(()=>toast("공유받은 일정을 저장했어요 — 상단 폴더에서 내 여행 시작"),900); } }
   KAKAO_KEY=localStorage.getItem("dongseoni_kakao")||DEFAULT_KAKAO; ODSAY_KEY=localStorage.getItem("dongseoni_odsay")||DEFAULT_ODSAY; TOUR_KEY=localStorage.getItem("dongseoni_tour")||DEFAULT_TOUR; GEMINI_KEY=localStorage.getItem("dongseoni_gemini")||DEFAULT_GEMINI; ADMIN=localStorage.getItem("dongseoni_admin")==="1"; if(KAKAO_KEY) loadKakao();
   /* 성능: 지도 GeoJSON·도시목록은 openDestPicker/showRegionCities가 lazy 로드(부팅 임계경로에서 제거). probeOdsay는 idle 지연 — OD_OK 판정 후 렌더 디바운스가 이동시간을 사후 반영 */
   (window.requestIdleCallback||(f=>setTimeout(f,1500)))(()=>probeOdsay());
