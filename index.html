@@ -140,8 +140,6 @@ input,select,textarea{font-family:inherit}
 .tl-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .tl-acts button{font-size:12px;color:var(--tx2);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r-sm);padding:6px 10px;display:flex;align-items:center;gap:5px;white-space:nowrap}
 .tl-acts button.go{color:#d6e8ff;border-color:var(--accent-d);background:rgba(90,147,255,.14)}
-.move{display:flex;flex-direction:column;gap:4px;justify-content:center}
-.move button{width:30px;height:24px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:7px;color:var(--tx2);font-size:13px;display:flex;align-items:center;justify-content:center}.move button:active{background:var(--accent);color:#fff}
 .travel{font-size:11px;color:var(--tx3);margin:0 0 10px 58px;display:flex;align-items:center;gap:6px}.travel .ln{width:14px;height:1px;background:var(--line2)}
 .sunline{display:flex;align-items:center;gap:10px;margin:14px 2px 12px;font-size:12px;font-weight:600;color:#ffca8a}
 .sunline::before,.sunline::after{content:"";flex:1;height:1px;background:rgba(255,180,100,.32)}
@@ -255,8 +253,8 @@ body.dnd-active{overscroll-behavior:contain}
 <body>
 <div class="sky" id="sky"><div class="fx" id="fx"></div></div>
 <div class="app" id="app"></div>
-<div class="sheet-bg" id="sheetBg" onclick="if(event.target===this)closeSheet()"><div class="sheet" id="sheet"></div></div>
-<div class="toast" id="toast"></div>
+<div class="sheet-bg" id="sheetBg" onclick="if(event.target===this)closeSheet()"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <nav class="tabbar" id="tabbar">
   <button data-screen="home" class="on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 10.8 12 3.5l9 7.3"/><path d="M5.2 9.4V20h13.6V9.4"/></svg></span>오늘</button>
   <button data-screen="timeline"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.6"/><path d="M3.5 9.4h17M8 3.2v3.4M16 3.2v3.4"/></svg></span>일정</button>
@@ -272,7 +270,7 @@ const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 Java
 const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
 const DEFAULT_TOUR  = "71e042381154b4346c64a75d139ceaab665d6174012adf26f2ddfbeefe6194ae";  /* ← 한국관광공사 TourAPI(data.go.kr). 도메인잠금 없음 — 쿼터(1,000/일) 도용 시 data.go.kr에서 재발급 후 교체 */
 const DEFAULT_GEMINI= "";  /* ← Gemini(블로그 AI 추출·리뷰 표현점검)는 기본 미탑재. Google 키는 HTTP 리퍼러 제한이 없으면 소스 노출 시 누구나 무료 할당량을 도용할 수 있어(과금·한도소진 위험) 공개 배포엔 넣지 않음. 쓰려면 🔌 설정에서 본인 키 입력(기기에만 저장) — 없어도 블로그 가져오기는 정규식 폴백, 리뷰 점검은 사실정보 표시로 동작 */
-const APP_VER = "2026-07-04h";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
+const APP_VER = "2026-07-05a";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
 let ADMIN = false; const ADMIN_PW = "KKM";  /* 관리자(개인용): 별점·리뷰수 정렬 잠금 해제. 공개/공유 링크 경로엔 노출 안 됨 */
 /* 내비·유틸 아이콘(라인 SVG) — 이모지 대신 써서 앱 인상을 정돈 */
 const IC_SHARE='<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.3"/><circle cx="17" cy="6" r="2.3"/><circle cx="17" cy="18" r="2.3"/><path d="M8.1 10.9 14.9 7.2M8.1 13.1l6.8 3.7"/></svg>';
@@ -341,6 +339,7 @@ let celebrating=false, lastRealCelebIdx=-1, celebTimer=null, onbDone=false;
 let WIZ=null;              /* 여행 만들기 마법사 {step:0..2} — 새 여행·첫 방문 시 어디로→언제→이동수단 3단계 */
 let addTarget="wish";      /* 담기 탭 대상: "wish"(보관함→자동 코스) | "day"(선택한 Day에 바로) */
 let REPLAN=null;           /* 지연 리플랜 제안 {pid,at,dev} — 체크인 시각이 계획과 ±15분 이상 어긋나면 홈 배너로 "지금 기준 재계산" 제안 */
+let NETOFF=(typeof navigator!=="undefined")&&navigator.onLine===false;   /* 오프라인 = 고장이 아니라 '모드' — 지하철·산간에서 저장된 정보로 계속 동작 */
 let KAKAO_KEY="", ODSAY_KEY="", TOUR_KEY="", GEMINI_KEY="", kakaoReady=false, kakaoLoading=null;
 const ODCACHE={}, odPending={}, WXCACHE={}, RECCACHE={};
 try{ localStorage.removeItem("dongseoni_stars_v1"); }catch(e){}   /* 별점 스크래핑 제거: 이전 캐시(복제본) 정리 */
@@ -349,18 +348,19 @@ let KMAP=null, OD_OK=null; const ALLCITY={}; let REGION_CITIES={};
 
 function blankTrip(){ return {v:3,dest:{city:"부산",region:"경남"},mode:"transit",startDate:todayStr(),nights:1,meal:{breakfast:"08:00",lunch:"12:00",dinner:"18:00"},mealOn:{breakfast:true,lunch:true,dinner:true},wish:[],arrival:null,days:[{start:"10:00",stay:null,places:[]},{start:"09:00",stay:null,places:[]}]}; }
 function toNum(v){ v=+v; return Number.isFinite(v)?v:0; }
+function cutStr(s,n){ s=String(s==null?"":s).slice(0,n); return s.replace(/[\uD800-\uDBFF]$/,""); }   /* 자르기 경계의 이모지 반쪽(고아 서로게이트) 제거 — encodeURIComponent가 URIError로 죽는 것 방지 */
 function cleanNode(o){ if(!o||typeof o!=="object") return o;
   if("lat" in o) o.lat=toNum(o.lat); if("lng" in o) o.lng=toNum(o.lng);
-  if("name" in o) o.name=String(o.name==null?"":o.name).slice(0,80);
-  if("area" in o) o.area=String(o.area==null?"":o.area).slice(0,40);
-  if("city" in o) o.city=String(o.city==null?"":o.city).slice(0,40);
+  if("name" in o) o.name=cutStr(o.name,80);
+  if("area" in o) o.area=cutStr(o.area,40);
+  if("city" in o) o.city=cutStr(o.city,40);
   if("id" in o) o.id=String(o.id==null?"":o.id).replace(/[^A-Za-z0-9_-]/g,"").slice(0,24)||uid();
   if("anchor" in o) o.anchor=(typeof o.anchor==="string"&&/^\d{1,2}:\d{2}$/.test(o.anchor))?o.anchor:null;   /* 시각·끼니·체류시간도 공유링크 유입분 정규화(innerHTML/value 삽입 필드) */
   if("meal" in o) o.meal=(o.meal==="breakfast"||o.meal==="lunch"||o.meal==="dinner")?o.meal:null;
   if("dur" in o){ const dv=+o.dur; o.dur=(isFinite(dv)&&dv>=0&&dv<=1440)?Math.round(dv):null; }
   if("rate" in o){ const r=+o.rate; o.rate=(r>=1&&r<=5)?Math.round(r):null; }   /* 내 기록(별점·메모·방문시각) — 공유링크로 유입될 수 있어 정규화 */
-  if("note" in o) o.note=o.note==null?null:String(o.note).slice(0,200);
-  if("menu" in o) o.menu=o.menu==null?null:String(o.menu).slice(0,300);   /* 공식 대표메뉴(TourAPI) — 공유링크 유입분도 escapeHtml 삽입이라 길이만 제한 */
+  if("note" in o) o.note=o.note==null?null:cutStr(o.note,200);
+  if("menu" in o) o.menu=o.menu==null?null:cutStr(o.menu,300);   /* 공식 대표메뉴(TourAPI) — 공유링크 유입분도 escapeHtml 삽입이라 길이만 제한 */
   if("visitedAt" in o){ const v=+o.visitedAt; o.visitedAt=(isFinite(v)&&v>0)?v:null; }
   if(o.hours&&typeof o.hours==="object"){ const h=o.hours; const tm=v=>(typeof v==="string"&&/^\d{1,2}:\d{2}$/.test(v))?v:""; h.breakStart=tm(h.breakStart); h.breakEnd=tm(h.breakEnd); h.lastOrder=tm(h.lastOrder); h.verified=(typeof h.verified==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(h.verified))?h.verified:null; if(!Array.isArray(h.closed)) h.closed=[]; else h.closed=h.closed.map(Number).filter(n=>n>=0&&n<=6); }   /* 운영정보도 공유링크 유입 대비 정규화(innerHTML 삽입 필드) */
   return o; }
@@ -376,6 +376,9 @@ function ensureDays(t){ if(!t||typeof t!=="object") return t;
   if(!MODES[t.mode]) t.mode="transit";
   if(!t.mealOn||typeof t.mealOn!=="object") t.mealOn={breakfast:true,lunch:true,dinner:true};
   if(!Array.isArray(t.wish)) t.wish=[]; else { t.wish=t.wish.filter(w=>w&&typeof w==="object").slice(0,60); t.wish.forEach(w=>{ cleanNode(w); if(!TYPE_META[w.type]) w.type="see"; }); }
+  if(t.mt&&typeof t.mt==="object"&&!Array.isArray(t.mt)){ const mt={}; Object.keys(t.mt).slice(0,150).forEach(kk=>{   /* 직접 확인한 구간시간 — 공유링크 유입분 정규화(키 형식·값 범위). 키는 장소 id 기반(좌표 폴백 허용) */
+    if(!/^(transit|walk|car)\|[A-Za-z0-9_.,>\-]{3,60}$/.test(kk)) return; const v=Math.round(+t.mt[kk]); if(isFinite(v)&&v>=1&&v<=600) mt[kk]=v; }); t.mt=mt; }
+  else delete t.mt;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(String(t.startDate||""))) t.startDate=todayStr();
   t.nights=Math.max(0,t.days.length-1);
   return t; }
@@ -451,7 +454,27 @@ function activeEntry(){ return TRIPS.find(t=>t.id===ACTIVE); }
 function tripName(){ const e=activeEntry(); return e?e.name:"내 여행"; }
 function writeTrips(){ const payload=JSON.stringify({list:TRIPS,active:ACTIVE});
   try{ localStorage.setItem("dongseoni_trips_v1",payload); }
-  catch(e){ try{ Object.keys(localStorage).filter(k=>k.indexOf("dongseoni_wx_")===0).forEach(k=>localStorage.removeItem(k)); localStorage.setItem("dongseoni_trips_v1",payload); }catch(_){ toast("저장 공간이 가득 찼어요"); } } }
+  catch(e){ try{ ["dongseoni_wx_","dongseoni_stars","dongseoni_kmap_v2","dongseoni_cities_v1","dongseoni_rt_v1"].forEach(pre=>Object.keys(localStorage).filter(k=>k.indexOf(pre)===0).forEach(k=>localStorage.removeItem(k)));   /* 여행 데이터가 최우선 — 캐시류부터 퇴출 */
+      localStorage.setItem("dongseoni_trips_v1",payload); }catch(_){ toast("저장 공간이 가득 찼어요 — 설정에서 백업을 내려받아 두세요"); } } }
+/* ── 백업·복구 — localStorage가 유일 저장소인 구조의 안전망(기기 변경·저장소 퇴출·손상 대비) ── */
+function backupTrips(){ try{ persist();
+  const blob=new Blob([JSON.stringify({v:1,ts:Date.now(),list:TRIPS,active:ACTIVE})],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="dongseoni-backup-"+todayStr()+".json";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast("백업 파일을 내려받았어요"); }catch(e){ toast("백업 생성 실패"); } }
+function restoreTrips(file){ const rd=new FileReader();
+  rd.onload=()=>{ try{ const o=JSON.parse(rd.result); const list=(o&&Array.isArray(o.list))?o.list:null; if(!list||!list.length) throw 0;
+    const clean=list.map(e=>({id:String(e&&e.id||"").replace(/[^A-Za-z0-9_-]/g,"").slice(0,24)||uid(),name:cutStr((e&&e.name)||"여행",40),updatedAt:+(e&&e.updatedAt)||Date.now(),trip:migrate(e&&e.trip)}))
+      .filter(e=>e.trip&&Array.isArray(e.trip.days));   /* migrate→ensureDays 경유 = 공유링크와 동일한 정규화·무해화 */
+    if(!clean.length) throw 0;
+    persist(); const ids=new Set(TRIPS.map(t=>t.id)); let added=0;
+    clean.forEach(e=>{ if(ids.has(e.id)) e.id=uid(); ids.add(e.id); TRIPS.push(e); added++; });
+    writeTrips(); toast(added+"개 여행을 불러왔어요 — 📂 내 여행에서 전환"); openTrips(); }catch(e){ toast("백업 파일을 읽지 못했어요"); } };
+  rd.readAsText(file); }
+let CRASHN=0;
+function crashGuard(){ CRASHN++; if(CRASHN<2) return; try{ const app=document.getElementById("app");   /* 연속 오류 + 빈 화면일 때만 — 정상 UI는 덮지 않음 */
+  if(app&&!app.children.length&&!app.textContent.trim()) app.innerHTML='<div class="wrap" style="padding-top:70px"><div class="card"><b style="font-size:16px">문제가 생겼어요</b><p class="muted" style="margin:8px 0 14px">여행 데이터는 안전하게 저장돼 있어요. 백업을 내려받은 뒤 새로고침해 보세요.</p><button class="btn primary" onclick="backupTrips()">전체 백업 내려받기</button><button class="btn line" style="margin-top:8px" onclick="location.reload()">새로고침</button></div></div>';
+}catch(e){} }
+window.addEventListener("error",crashGuard); window.addEventListener("unhandledrejection",crashGuard);
 function loadTrips(){
   try{ const r=JSON.parse(localStorage.getItem("dongseoni_trips_v1")||"null"); if(r&&Array.isArray(r.list)&&r.list.length){ TRIPS=r.list; ACTIVE=r.active||r.list[0].id; return; } }catch(e){}
   const legacy=localStorage.getItem("dongseoni_trip"); if(legacy){ try{ const t=JSON.parse(legacy); if(t){ ACTIVE=uid(); TRIPS=[{id:ACTIVE,name:"내 여행",updatedAt:Date.now(),trip:t}]; writeTrips(); return; } }catch(e){} }
@@ -468,23 +491,23 @@ function updateBadge(){ try{ if(!("setAppBadge" in navigator)) return;
 function hashTrip(){ const m=location.hash.match(/#t=(.+)$/); if(m){ const t=migrate(decodeTrip(m[1])); if(t&&Array.isArray(t.days)) return t; } return null; }
 function lsTrip(){ const e=activeEntry(); if(e){ const t=migrate(e.trip); if(t&&Array.isArray(t.days)) return t; } return null; }
 function load(){ return hashTrip()||lsTrip(); }
-function newTrip(){ persist(); const id=uid(); const t=blankTrip(); TRIPS.push({id,name:"여행 "+(TRIPS.length+1),updatedAt:Date.now(),trip:t}); ACTIVE=id; TRIP=t; curDay=0; writeTrips(); closeSheet(); lastSkyMood=null; setTab("add",false); WIZ={step:0}; render(); toast("새 여행 — 어디로 떠나세요?"); }
+function newTrip(){ persist(); const id=uid(); const t=blankTrip(); TRIPS.push({id,name:"여행 "+(TRIPS.length+1),updatedAt:Date.now(),trip:t}); ACTIVE=id; TRIP=t; curDay=0; simMinutes=null; REPLAN=null; writeTrips(); closeSheet(); lastSkyMood=null; setTab("add",false); WIZ={step:0}; render(); toast("새 여행 — 어디로 떠나세요?"); }
 async function demoTrip(){ /* 온보딩 "예시 먼저 보기" — 완성된 타임라인(끼니·이동시간·날씨)을 1탭에. 별도 여행 엔트리라 기존 데이터 무회귀, 📂에서 삭제 가능 */
   const cur=activeEntry(), pristine=e=>e&&e.trip&&(e.trip.days||[]).every(d=>!(d.places&&d.places.length)&&!d.stay)&&!e.trip.arrival&&!((e.trip.wish||[]).length);
   if(WIZ&&pristine(cur)) TRIPS=TRIPS.filter(e=>e.id!==cur.id);   /* 마법사에서 막 만든 빈 여행은 예시로 대체(유령 엔트리 방지) */
   else if(TRIPS.length) persist();   /* 빈 부트 TRIP 유령저장 방지 — 기존 여행 있을 때만 보존 */
-  const id=uid(), t=blankTrip(); TRIPS.push({id,name:"부산 예시",updatedAt:Date.now(),trip:t}); ACTIVE=id; TRIP=t; curDay=0;
+  const id=uid(), t=blankTrip(); TRIPS.push({id,name:"부산 예시",updatedAt:Date.now(),trip:t}); ACTIVE=id; TRIP=t; curDay=0; simMinutes=null; REPLAN=null;
   const S=CITY["부산"].seed, mk=i=>mkPlace(S[i][0],S[i][1],S[i][2]);
   t.days[0].places=[0,5,2,6].map(mk); t.days[1].places=[4,3,7].map(mk);   /* Day1 해운대·자갈치(eat)·감천·서면국밥(eat) / Day2 용두산·태종대·해동용궁사 */
   await optimizeDay(0,true); await optimizeDay(1,true);   /* 실측 도로거리 행렬 기준(순차 — MMAT 전역 공유) */
   onbDone=true; WIZ=null; try{ localStorage.setItem("dongseoni_onb","1"); }catch(e){}
   writeTrips(); lastSkyMood=null; setTab("timeline",false); render(); toast("부산 예시 일정이에요 — 내 여행은 상단 📂에서 새로 시작"); }
-function switchTrip(id){ if(id===ACTIVE){ closeSheet(); return; } persist(); const e=TRIPS.find(t=>t.id===id); if(!e) return; ACTIVE=id; TRIP=migrate(e.trip)||blankTrip(); curDay=0; writeTrips(); closeSheet(); lastSkyMood=null; render(); toast(e.name+"(으)로 전환"); }
+function switchTrip(id){ if(id===ACTIVE){ closeSheet(); return; } persist(); const e=TRIPS.find(t=>t.id===id); if(!e) return; ACTIVE=id; TRIP=migrate(e.trip)||blankTrip(); curDay=0; simMinutes=null; REPLAN=null; writeTrips(); closeSheet(); lastSkyMood=null; render(); toast(e.name+"(으)로 전환"); }   /* 이전 여행의 시뮬 시각·리플랜 제안이 새 여행에 새는 것 방지 */
 function renameTrip(id){ const e=TRIPS.find(t=>t.id===id); if(!e) return; const n=prompt("여행 이름",e.name); if(n!=null){ e.name=String(n).trim().slice(0,40)||e.name; writeTrips();
   if(document.querySelector("#sheetBg.open")) openTrips(); else render(); } }   /* 시트에서 부르면 목록 갱신, 여행 탭에서 부르면 화면만 갱신 */
 function deleteTrip(id){ const e=TRIPS.find(t=>t.id===id); if(!e) return; if(!confirm("'"+e.name+"' 여행을 삭제할까요?")) return;
   TRIPS=TRIPS.filter(t=>t.id!==id);
-  if(ACTIVE===id){ if(TRIPS.length){ const nx=TRIPS.slice().sort((a,b)=>b.updatedAt-a.updatedAt)[0]; ACTIVE=nx.id; TRIP=migrate(nx.trip)||blankTrip(); } else { ACTIVE=uid(); TRIP=blankTrip(); TRIPS=[{id:ACTIVE,name:"내 여행",updatedAt:Date.now(),trip:TRIP}]; } curDay=0; }
+  if(ACTIVE===id){ if(TRIPS.length){ const nx=TRIPS.slice().sort((a,b)=>b.updatedAt-a.updatedAt)[0]; ACTIVE=nx.id; TRIP=migrate(nx.trip)||blankTrip(); } else { ACTIVE=uid(); TRIP=blankTrip(); TRIPS=[{id:ACTIVE,name:"내 여행",updatedAt:Date.now(),trip:TRIP}]; } curDay=0; simMinutes=null; REPLAN=null; }
   writeTrips(); lastSkyMood=null; render(); openTrips(); toast("삭제됨"); }
 function openTrips(){ persist();
   const rows=TRIPS.slice().sort((a,b)=>b.updatedAt-a.updatedAt).map(e=>{ const d=(e.trip&&e.trip.dest&&e.trip.dest.city)||"여행"; const n=(e.trip&&typeof e.trip.nights==="number")?e.trip.nights:0;
@@ -496,20 +519,22 @@ function openTrips(){ persist();
 function effAnchor(p){ if(p.anchor) return p.anchor; if(p.meal&&mealOn(p.meal)&&TRIP.meal&&TRIP.meal[p.meal]) return TRIP.meal[p.meal]; return null; }
 
 /* ---------- 실측 캐시 영속화 + 선제 실측 — "추정" 노출 최소화 ---------- */
-let rtT=null;
+let rtT=null; const ODTS={}, OSTS={};   /* 항목별 실측 시각 — 블롭 전체 ts 하나로 판정하면 매 저장마다 갱신돼 오래된 항목이 TTL을 회피함 */
+const ODFAIL={};   /* ODsay가 HTTP 200 + 오류바디(경로없음·쿼터)로 답한 구간 — 10분간 재발사 억제(세션 한정) */
 function rtPersist(){ clearTimeout(rtT); rtT=setTimeout(()=>{ try{
-  const trim=(o,n)=>{ const ks=Object.keys(o); if(ks.length<=n) return o; const out={}; ks.slice(-n).forEach(k=>out[k]=o[k]); return out; };
-  localStorage.setItem("dongseoni_rt_v1",JSON.stringify({ts:Date.now(),od:trim(ODCACHE,300),os:trim(OSRMCACHE,300)}));
+  const pick=(o,ts,n)=>{ const ks=Object.keys(o).sort((a,b)=>(ts[b]||0)-(ts[a]||0)).slice(0,n); const v={},t={}; ks.forEach(k=>{ v[k]=o[k]; t[k]=ts[k]||Date.now(); }); return {v,t}; };
+  const od=pick(ODCACHE,ODTS,300), os=pick(OSRMCACHE,OSTS,300);
+  localStorage.setItem("dongseoni_rt_v1",JSON.stringify({od:od.v,odts:od.t,os:os.v,osts:os.t}));
 }catch(e){} },800); }   /* 성공 페치마다 디바운스 저장 — 재시작·오프라인에도 실측 유지 + ODsay 쿼터 절약 */
-function rtLoad(){ try{ const r=JSON.parse(localStorage.getItem("dongseoni_rt_v1")||"null"); if(!r) return;
-  const age=Date.now()-(r.ts||0);
-  if(age<6048e5&&r.os) Object.assign(OSRMCACHE,r.os);   /* 도로거리·자동차시간 7일 — 도로망은 잘 안 변함 */
-  if(age<864e5&&r.od) Object.assign(ODCACHE,r.od);      /* 대중교통 실측 24시간 — 시간표 변동 대비 */
+function rtLoad(){ try{ const r=JSON.parse(localStorage.getItem("dongseoni_rt_v1")||"null"); if(!r) return; const now=Date.now();
+  if(r.os&&r.osts) Object.keys(r.os).forEach(k=>{ if(now-(r.osts[k]||0)<6048e5){ OSRMCACHE[k]=r.os[k]; OSTS[k]=r.osts[k]; } });   /* 도로거리·자동차시간 7일 — 항목별 판정 */
+  if(r.od&&r.odts) Object.keys(r.od).forEach(k=>{ if(now-(r.odts[k]||0)<864e5){ ODCACHE[k]=r.od[k]; ODTS[k]=r.odts[k]; } });      /* 대중교통 실측 24시간 */
 }catch(e){} }
 let pfT=null;
-function schedulePrefetch(){ clearTimeout(pfT); pfT=setTimeout(()=>{ (window.requestIdleCallback||(f=>setTimeout(f,400)))(()=>{ try{ if(!TRIP) return;
-  for(let di=0;di<daysCount();di++) buildSteps(di);   /* buildSteps가 구간별 transit() 호출 → 미실측 구간의 ODsay/OSRM 페치를 미리 트리거(중복은 캐시·pending이 차단) — 사용자가 보기 전에 실측 완료 */
-}catch(e){} }); },600); }
+function schedulePrefetch(){ clearTimeout(pfT); pfT=setTimeout(()=>{ (window.requestIdleCallback||(f=>setTimeout(f,400)))(()=>{
+  let di=0; const step=()=>{ if(!TRIP||di>=daysCount()) return; try{ buildSteps(di); }catch(e){} di++; setTimeout(step,700); };   /* 하루씩 700ms 간격 — 멀티데이 첫 방문 시 수십 건 동시 발사(429·쿼터 폭주) 방지 */
+  step();
+}); },600); }   /* buildSteps가 구간별 transit() 호출 → 미실측 구간 페치를 미리 트리거(중복은 캐시·pending·ODFAIL이 차단) */
 
 /* ---------- 이동시간(좌표 기반 + 부산보정 + ODsay) ---------- */
 function ck(n){ return (n.lat||0).toFixed(3)+","+(n.lng||0).toFixed(3); }
@@ -518,22 +543,31 @@ const OSRMCACHE={}, osrmPending={};
 function fetchOSRM(a,b,k){ osrmPending[k]=true;
   const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),8000);
   fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=false`,{signal:ctl.signal})
-    .then(r=>r.json()).then(j=>{ if(j&&j.code==="Ok"&&j.routes&&j.routes[0]){ OSRMCACHE[k]={dist:j.routes[0].distance/1000, car:Math.round(j.routes[0].duration/60)}; rtPersist();
-      clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) render(); } },150); } })
+    .then(r=>r.json()).then(j=>{ if(j&&j.code==="Ok"&&j.routes&&j.routes[0]){ OSRMCACHE[k]={dist:j.routes[0].distance/1000, car:Math.round(j.routes[0].duration/60)}; OSTS[k]=Date.now(); rtPersist();
+      clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) quietRender(); } },150); } })
     .catch(()=>{}).finally(()=>{ clearTimeout(to); delete osrmPending[k]; });
 }
+function nodeKey(p){ if(!p) return "0"; if(p.id) return String(p.id); if(p.place&&p.place.id) return String(p.place.id); return ck(p); }   /* 장소 id 우선(스텝 객체는 내부 place의 id) — 좌표 폴백 장소끼리 키 충돌·삭제 후 유령 매칭 방지. id 없는 도착/숙소만 좌표 폴백 */
+function mtKey(mode,a,b){ return mode+"|"+nodeKey(a)+">"+nodeKey(b); }
+function userT(a,b,mode){ if(!TRIP||!TRIP.mt||!a||!b) return null;   /* 사용자가 카카오맵에서 확인해 직접 입력한 구간 시간 — 최우선(좌표 없는 장소도 id로 동작) */
+  const v=TRIP.mt[mtKey(mode,a,b)]; if(v!=null) return v;
+  const w=TRIP.mt[mtKey(mode,b,a)]; return w!=null?w:null; }
 function transit(a,b){
   if(!a||!b) return 0; const mode=(TRIP&&TRIP.mode)||"transit", M=MODES[mode];
+  const ut=userT(a,b,mode); if(ut!=null) return ut;
   if(a.area===b.area && a.city===b.city) return M.same;
   if(!(a.lat&&b.lat)) return 30;
   const k=ck(a)+">"+ck(b), k2=ck(b)+">"+ck(a), O=OSRMCACHE[k]||OSRMCACHE[k2];
   if(!O && !osrmPending[k] && !osrmPending[k2] && !(mode==="transit" && ODSAY_KEY && OD_OK!==false)) fetchOSRM(a,b,k);   // 도로거리·자동차시간 실측 — 대중교통은 ODsay 가용 시 OSRM 생략(중복 호출 제거, ODsay 미가용이면 폴백 정확도 위해 유지)
   if(mode==="transit"){
     if(ODCACHE[k]!=null) return ODCACHE[k]; if(ODCACHE[k2]!=null) return ODCACHE[k2];
-    if(ODSAY_KEY && OD_OK!==false && !odPending[k]){ odPending[k]=true; fetchOdsay(a,b,k); }
+    if(ODSAY_KEY && OD_OK!==false && !odPending[k] && !(ODFAIL[k]&&Date.now()-ODFAIL[k]<6e5)){ odPending[k]=true; fetchOdsay(a,b,k); }   /* 오류바디로 실패한 구간은 10분 재발사 억제(렌더 캐스케이드 쿼터 낭비 방지) */
     if(a.city==="부산"&&b.city==="부산"){ const t=busanT(a.area,b.area); if(t!=null) return t; }
   }
-  if(mode==="car" && O){ const km=O.dist, sp=(km<6?20:km<15?28:km<40?42:65); return Math.max(M.minT, Math.round(km/sp*60)+4); }   // 실제 도로거리 ÷ 한국 도심 평균속도(혼잡 반영). OSRM 무혼잡 시간은 2~4배 과소라 미사용
+  if(mode==="car" && O){ const km=O.dist, sp=(km<6?20:km<15?28:km<40?42:65);
+    const spdT=Math.max(M.minT, Math.round(km/sp*60)+4);                                    // 모델①: 도로거리 ÷ 한국 도심 평균속도(혼잡 내재)
+    const durT=(O.car!=null&&O.car>0)?Math.round(O.car*(km<8?1.6:km<25?1.35:1.15))+4:null;  // 모델②: OSRM 실주행시간 × 도심 보정계수(무혼잡 과소 보정)
+    return Math.max(M.minT, durT!=null?Math.round((spdT+durT)/2):spdT); }                   // 두 독립 모델 평균 — 단일 모델보다 과소·과대 상쇄(정확도↑)
   if(mode==="walk" && O) return Math.max(M.minT, Math.round(O.dist/M.spd*60) + M.buf);   // 실측 도로거리 ÷ 도보속도
   const km = O ? O.dist : haversine(a,b);   // OSRM 도로거리 있으면 우회율 불필요
   const det = O ? 1.0 : (km>25?M.det*0.85:M.det); let spd=M.spd;
@@ -541,9 +575,10 @@ function transit(a,b){
   else if(mode==="car") spd = km>30?70:(km>8?45:M.spd);
   return Math.max(M.minT, Math.round(km*det/spd*60)+M.buf);
 }
-function transitSrc(a,b){   // 이 이동시간의 출처(실측/부산권/도로/추정)
+function transitSrc(a,b){   // 이 이동시간의 출처(직접확인/실측/부산권/도로/추정)
+  const md=(TRIP&&TRIP.mode)||"transit"; if(userT(a,b,md)!=null) return "user";
   if(!a||!b||(a.area===b.area&&a.city===b.city)) return "est";
-  const mode=(TRIP&&TRIP.mode)||"transit"; if(!(a.lat&&b.lat)) return "est";
+  const mode=md; if(!(a.lat&&b.lat)) return "est";
   const k=ck(a)+">"+ck(b),k2=ck(b)+">"+ck(a), O=OSRMCACHE[k]||OSRMCACHE[k2];
   if(mode==="transit"){ if(ODCACHE[k]!=null||ODCACHE[k2]!=null) return "odsay";
     if(a.city==="부산"&&b.city==="부산"&&busanT(a.area,b.area)!=null) return "busan"; return "est"; }
@@ -556,7 +591,8 @@ let odRenderT=null;
 async function fetchOdsay(a,b,k){
   const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),9000);
   try{ const r=await fetch(odsayUrl(a.lat,a.lng,b.lat,b.lng),{signal:ctl.signal}); const j=await r.json(); const t=j&&j.result&&j.result.path&&j.result.path[0]&&j.result.path[0].info&&j.result.path[0].info.totalTime;
-    if(t){ OD_OK=true; ODCACHE[k]=t+8; rtPersist(); clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) render(); } },150); } }
+    if(t){ OD_OK=true; ODCACHE[k]=t+8; ODTS[k]=Date.now(); rtPersist(); clearTimeout(odRenderT); odRenderT=setTimeout(()=>{ if(document.getElementById("app")){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) quietRender(); } },150); }
+    else ODFAIL[k]=Date.now(); }   /* HTTP 200이어도 오류바디(경로없음·쿼터)면 네거티브 캐시 */
   catch(e){ /* 개별 경로 실패는 전역 OD_OK를 끄지 않음 — 그 경로만 추정 폴백 */ }
   finally{ clearTimeout(to); delete odPending[k]; }
 }
@@ -565,7 +601,7 @@ async function probeOdsay(){   // 부팅 1회: ODsay 브라우저 직접호출(C
   try{ const r=await fetch(odsayUrl(35.1151,129.0413,35.1577,129.0594)); const j=await r.json();
     OD_OK=!!(j&&j.result&&j.result.path&&j.result.path[0]&&j.result.path[0].info&&j.result.path[0].info.totalTime); }
   catch(e){ OD_OK=false; }
-  if(screen!=="add"&&screen!=="trip"&&document.getElementById("app")) render();   /* 담기·여행 탭엔 자유입력 필드가 있어 재렌더로 타이핑을 날리지 않음 */
+  if(screen!=="add"&&screen!=="trip"&&document.getElementById("app")) quietRender();   /* 담기·여행 탭엔 자유입력 필드가 있어 재렌더로 타이핑을 날리지 않음 */
 }
 
 /* ---------- 스케줄(하루) ---------- */
@@ -580,8 +616,8 @@ function buildSteps(di){
     if(p.anchor){ const a=hmToMin(p.anchor); if(a!=null){ arrive=a; fixed=true; } }   // 사용자가 고정한 도착시각 = 무조건 적용
     else { const an=effAnchor(p); if(an){ const a=hmToMin(an); if(a!=null&&a>arrive) arrive=a; } }   // 끼니 기본 = 부드러운 하한
     const dur=p.dur??TYPE_META[p.type]?.dur??60; const depart=arrive+dur;
-    steps.push({kind:"place",place:p,name:p.name,area:p.area,city:p.city,lat:p.lat,lng:p.lng,travel:tv,travelSrc:tsr,arrive,depart,gap:arrive-need,fixed}); cur=depart; prev=p; });
-  if(day.stay){ const tv=transit(prev,day.stay), tsr=transitSrc(prev,day.stay); steps.push({kind:"stay",name:day.stay.name||"숙소",area:day.stay.area,city:day.stay.city,lat:day.stay.lat,lng:day.stay.lng,travel:tv,travelSrc:tsr,arrive:cur+tv,depart:cur+tv}); }
+    steps.push({kind:"place",place:p,name:p.name,area:p.area,city:p.city,lat:p.lat,lng:p.lng,travel:tv,travelSrc:tsr,arrive,depart,gap:arrive-need,fixed,frm:prev}); cur=depart; prev=p; });   /* frm=이 구간의 출발 노드 — 구간 시간 확인·수정용 */
+  if(day.stay){ const tv=transit(prev,day.stay), tsr=transitSrc(prev,day.stay); steps.push({kind:"stay",name:day.stay.name||"숙소",area:day.stay.area,city:day.stay.city,lat:day.stay.lat,lng:day.stay.lng,travel:tv,travelSrc:tsr,arrive:cur+tv,depart:cur+tv,frm:prev}); }
   return steps;
 }
 function bizStatus(p,atMin,dateStr){ const h=p.hours||{}; const dow=new Date((dateStr||curDate())+"T00:00:00").getDay();
@@ -603,7 +639,9 @@ async function ensureWeather(lat,lng){ const k=wxKey(lat,lng); if(WXCACHE[k]) re
   try{ const fd=Math.min(16,Math.max(4,daysCount()+2));
     const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=precipitation_probability,temperature_2m,weather_code&daily=sunrise,sunset&timezone=Asia%2FSeoul&forecast_days=${fd}`); const j=await r.json();
     const data={time:j.hourly.time,pop:j.hourly.precipitation_probability,temp:j.hourly.temperature_2m,code:j.hourly.weather_code,sun:(j.daily?{date:j.daily.time,rise:j.daily.sunrise,set:j.daily.sunset}:null)};
-    WXCACHE[k]=data; wxPersist(k,data); return data; }catch(e){ return null; } }
+    WXCACHE[k]=data; wxPersist(k,data); return data; }
+  catch(e){ if(ls){ try{ const o=JSON.parse(ls); o.data._stale=Date.now()-o.ts; WXCACHE[k]=o.data; return o.data; }catch(_){} } return null; } }   /* 오프라인: TTL 지난 캐시라도 'N시간 전 예보' 라벨로 복원 — 날씨가 '--'로 사라지지 않게 */
+function wxStaleTxt(){ const w=curWX(); if(!w||!w._stale) return ""; return ` · ${Math.max(1,Math.round(w._stale/3600000))}시간 전 예보`; }
 function wxPersist(k,data){ try{ localStorage.setItem("dongseoni_wx_"+k,JSON.stringify({ts:Date.now(),data})); }
   catch(e){ try{ Object.keys(localStorage).filter(x=>x.indexOf("dongseoni_wx_")===0).map(x=>{let t=0;try{t=JSON.parse(localStorage.getItem(x)).ts||0;}catch(_){} return [x,t];}).sort((p,q)=>p[1]-q[1]).slice(0,5).forEach(p=>localStorage.removeItem(p[0])); localStorage.setItem("dongseoni_wx_"+k,JSON.stringify({ts:Date.now(),data})); }catch(_){} } }
 function wxAt(dateStr,atMin){ const W=curWX(); if(!W) return null;
@@ -654,10 +692,11 @@ function mascot(mood,walking,emotion,mini){
 function mascotSay(mood,walking,emotion){ if(celebrating||emotion==="heart") return "도착! 잘했어"; if(emotion==="drool") return "여기 맛집이다!"; if(walking) return "다음 장소로 가요!"; if(mood==="rain") return "우산 챙겼나요?"; if(mood==="night") return "슬슬 마무리해요"; if(mood==="clear") return "날씨 좋아요, 가볼까요?"; return "천천히 즐겨요"; }
 
 /* ====================================================================  렌더  ==================================================================== */
-let _vt=false;
+let _vt=false, QUIET=false;
+function quietRender(){ QUIET=true; try{ render(); }finally{ QUIET=false; } }   /* 백그라운드 데이터 도착(실측·날씨)으로 인한 재렌더 — 진입 애니메이션 재생 없이(타임라인 깜빡임 방지) */
 function navTransition(fn){ if(document.startViewTransition && !(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)){ _vt=true; const t=document.startViewTransition(fn); t.finished.finally(()=>{_vt=false;}); } else fn(); }
 function render(){
-  const app=document.getElementById("app"); if(!_vt) app.classList.add("entering");
+  const app=document.getElementById("app"); if(!_vt&&!QUIET) app.classList.add("entering");
   const empty=!TRIP||(TRIP.days.every(d=>d.places.length===0&&!d.stay)&&!TRIP.arrival&&!(TRIP.wish&&TRIP.wish.length));
   const tb=document.getElementById("tabbar");
   if(WIZ||(empty&&!onbDone)){ if(!WIZ) WIZ={step:0}; if(tb) tb.style.display="none"; app.innerHTML=renderWizard(); buildSky(skyMoodNow()); return finishEnter(); }   /* 마법사 중엔 탭바 숨김 — 눌러도 동작 없는 혼란 방지 */
@@ -670,7 +709,7 @@ function render(){
   else { app.innerHTML=renderTrip(); buildSky(skyMoodNow()); }
   bindScreen(); finishEnter();
   const dc=dayCoords(curDay);
-  ensureWeather(dc.lat,dc.lng).then(w=>{ if(w&&!hadWX){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) render(); } });   /* 드래그 중 재렌더 스킵 — 진행 중 제스처 보호(dndCommit이 종료 시 render) */
+  ensureWeather(dc.lat,dc.lng).then(w=>{ if(w&&!hadWX){ if(screen==="home") applySim(); else if(screen==="timeline"&&!DND) quietRender(); } });   /* 드래그 중 재렌더 스킵 — 진행 중 제스처 보호(dndCommit이 종료 시 render) */
 }
 function finishEnter(){ requestAnimationFrame(()=>setTimeout(()=>document.getElementById("app").classList.remove("entering"),650)); }
 function skyMoodNow(){ const at=nowMinutes(); const w=wxAt(curDate(),at); return moodClass(w?w.code:null,at); }
@@ -733,7 +772,7 @@ function nowCardData(cur,next,at){
   } else if(cur&&cur.kind==="air") sub="도착";
   const remain=!cur?0:(staying?cur.depart-at:cur.arrive-at);
   const nextHTML=next?`→ ${escapeHtml(next.name)} ${minToHM(next.arrive).slice(0,5)}${next.travel?" · 이동 "+next.travel+"분":""}`:"";
-  const nextTag=next?({odsay:"실측",osrm:"실측",road:"도로기반",busan:"부산권",est:"추정"}[next.travelSrc]||"추정"):"추정";
+  const nextTag=next?({user:"직접 확인",odsay:"실측",osrm:"실측",road:"도로기반",busan:"부산권",est:"추정"}[next.travelSrc]||"추정"):"추정";
   return {verb,name:cur?cur.name:"일정 없음",sub,badges,verify,remLab:staying?"다음 출발까지":"도착까지",remN:remain>0?remain+"분":"지금",nextHTML,nextTag,walking:!staying&&!!cur};
 }
 function bannerHTML(steps,idx,at,cur){ let b="";
@@ -744,7 +783,7 @@ function bannerHTML(steps,idx,at,cur){ let b="";
   if(outNext){ const ow=wxAt(curDate(),outNext.arrive); if(ow&&ow.pop>=60) b+=`<div class="banner rain"><span class="ic">🌧️</span><span class="msg">${minToHM(outNext.arrive).slice(0,5)} <b>${escapeHtml(outNext.name)}</b> · 비 확률 ${ow.pop}% — 실내로 바꿀까요?</span><button class="act" onclick="openPlanB('${jsStr(outNext.area)}')">바꾸기</button></div>`; }
   const sun=sunMin(curDate());
   if(sun){   /* 해 진 뒤 도착 경고 배너는 제거 — 타임라인의 일출·일몰 라인이 그 역할(사용자 피드백) */
-    const gold=steps.slice(idx,idx+2).find(s=>s.kind==="place"&&s.place&&!s.place.indoor&&TOUR_LANDMARK.test(s.name)&&s.arrive<=sun.set+10&&s.depart>=sun.set-60);   /* 골든아워(일몰−60~+10분)에 실제로 머무는 지금·다음 랜드마크만 */
+    const gold=steps.slice(idx,idx+2).find(s=>s.kind==="place"&&s.place&&s.place.type==="see"&&!s.place.indoor&&TOUR_LANDMARK.test(s.name)&&s.arrive<=sun.set+10&&s.depart>=sun.set-60);   /* 골든아워(일몰−60~+10분)에 실제로 머무는 지금·다음 야외 볼거리 랜드마크만 — 타임라인 배지와 조건 통일 */
     if(gold&&at>=sun.set-75&&at<=sun.set+10){ const gw=wxAt(curDate(),at); if(!gw||gw.code<=3) b+=`<div class="banner" style="background:rgba(255,159,67,.12);border:1px solid rgba(255,159,67,.3);color:#ffd9ae"><span class="ic">🌅</span><span class="msg"><b>${escapeHtml(gold.name)}</b> — 노을 골든아워예요 (일몰 ${minToHM(sun.set).slice(0,5)}) 📸</span></div>`; }
   }
   if((TRIP.mode||"transit")==="transit"){ const last=steps[steps.length-1]; const dl=hmToMin(TRIP.lastBack)??(23*60+30);
@@ -755,14 +794,14 @@ function bannerHTML(steps,idx,at,cur){ let b="";
 function rainStripHTML(at){
   if(!curWX()) return "";
   const base=Math.floor(at/60)*60, cells=[]; let maxPop=0;
-  for(let h=0;h<6;h++){ const t=base+h*60; if(t>=1440) break; const w=wxAt(curDate(),t); if(!w) break;
+  for(let h=0;h<6;h++){ const t=base+h*60; const w=wxAt(curDate(),t); if(!w) break;   /* wxAt이 자정 넘김(다음날 예보)을 처리 — 밤 시간대에도 스트립 유지 */
     if(w.pop>maxPop) maxPop=w.pop; const [ic]=wxIcon(w.code);
-    cells.push(`<span class="rs-c${w.pop>=60?" wet":""}">${Math.floor(t/60)}시<br>${ic} ${w.pop}%</span>`); }
+    cells.push(`<span class="rs-c${w.pop>=60?" wet":""}">${Math.floor(t/60)%24}시<br>${ic} ${w.pop}%</span>`); }
   if(cells.length<3||maxPop<40) return "";   /* 비 걱정 없는 날엔 홈을 어지럽히지 않음 */
   let note="";
   const now=wxAt(curDate(),base);
-  if(now&&now.pop>=40){ for(let h=1;h<=12;h++){ const t=base+h*60; if(t>=1440) break; const w=wxAt(curDate(),t);
-    if(w&&w.pop<30){ note=`<div class="rs-note">🌤 ${Math.floor(t/60)}시쯤 갤 것 같아요 — 그때까지 <a onclick="openPlanBCur()">근처 실내</a> 어때요?</div>`; break; } } }
+  if(now&&now.pop>=40){ for(let h=1;h<=12;h++){ const t=base+h*60; const w=wxAt(curDate(),t);
+    if(w&&w.pop<30){ note=`<div class="rs-note">🌤 ${Math.floor(t/60)%24}시쯤 갤 것 같아요 — 그때까지 <a onclick="openPlanBCur()">근처 실내</a> 어때요?</div>`; break; } } }
   return `<div class="rainstrip">${cells.join("")}</div>${note}`;
 }
 /* ── 건너뛰기 — 눈앞 휴무·만석 장소를 삭제 대신 보관함으로. 이후 일정은 buildSteps가 즉시 재계산 ── */
@@ -772,9 +811,10 @@ function skipCurrent(){
   const p=s.place; snapshot();
   TRIP.days[curDay].places=TRIP.days[curDay].places.filter(x=>x.id!==p.id);
   if(!TRIP.wish) TRIP.wish=[];
-  if(TRIP.wish.length<60&&!TRIP.wish.some(w=>w.name===p.name)) TRIP.wish.push({id:uid(),name:p.name,type:p.type==="eat"?"eat":"see",lat:p.lat,lng:p.lng,area:p.area,city:p.city||dest()});
+  const dup=TRIP.wish.some(w=>w.name===p.name), full=TRIP.wish.length>=60;
+  if(!full&&!dup) TRIP.wish.push({id:uid(),name:p.name,type:p.type==="eat"?"eat":"see",lat:p.lat,lng:p.lng,area:p.area,city:p.city||dest()});
   if(REPLAN&&REPLAN.pid===p.id) REPLAN=null;
-  save(); render(); toast(p.name+" 건너뜀 — 보관함에 담아뒀어요", true); }
+  save(); render(); toast(p.name+(full&&!dup?" 건너뜀 — 보관함이 가득 차 담지 못했어요":dup?" 건너뜀 (보관함에 이미 있음)":" 건너뜀 — 보관함에 담아뒀어요"), true); }   /* 거짓 성공 토스트 방지 */
 /* ── 지연 리플랜 — 체크인 시각을 anchor로 고정하면 이후 스텝은 기존 로직이 자동 전파 ── */
 function applyReplan(){ if(!REPLAN) return; const p=(TRIP.days[curDay].places||[]).find(x=>x.id===REPLAN.pid); if(!p){ REPLAN=null; return; }
   snapshot(); p.anchor=minToHM(REPLAN.at); REPLAN=null; save(); render(); toast("지금 기준으로 이후 일정을 다시 계산했어요", true); }
@@ -797,8 +837,8 @@ function renderHome(){
   const d=nowCardData(cur,next,at);
   return `${destBar()}${daySwitcher()}
   <div class="mood" id="moodHdr">
-    <div class="statusbar"><span class="pill" id="sbPill">${steps.length?("스텝 "+Math.min(idx+1,steps.length)+" / "+steps.length):"Day "+(curDay+1)}</span>
-      <span class="wx" id="sbWx">${wi} <b>${escapeHtml(dest())} ${w?w.temp+"°":"--"}</b> · 💧${w?w.pop:"--"}% · ${wl}</span></div>
+    <div class="statusbar"><span class="pill" id="sbPill">${NETOFF?"📵 ":""}${steps.length?("스텝 "+Math.min(idx+1,steps.length)+" / "+steps.length):"Day "+(curDay+1)}</span>
+      <span class="wx" id="sbWx">${wi} <b>${escapeHtml(dest())} ${w?w.temp+"°":"--"}</b> · 💧${w?w.pop:"--"}% · ${wl}${wxStaleTxt()}</span></div>
     <div id="rainStrip">${rainStripHTML(at)}</div>
     <div class="hero"><div id="mascotWrap" onclick="celebrate()" style="cursor:pointer;text-align:center">${mascot(mood,d.walking,emo)}</div>
       <div class="say" id="mascotSay">${mascotSay(mood,d.walking,emo)}</div>
@@ -831,8 +871,8 @@ function applySim(){
   if(simMinutes==null && idx!==lastRealCelebIdx){ lastRealCelebIdx=idx; if(staying) celebrate(); }
   const emo=emotionFor(cur,staying); const d=nowCardData(cur,next,at); buildSky(mood);
   set("simLive",minToHM(at).slice(0,5)+(simMinutes==null?" (실시간)":"")); set("clkT",minToHM(at).slice(0,5));
-  set("sbPill",steps.length?("스텝 "+Math.min(idx+1,steps.length)+" / "+steps.length):"Day "+(curDay+1));
-  setHTML("sbWx",`${wi} <b>${escapeHtml(dest())} ${w?w.temp+"°":"--"}</b> · 💧${w?w.pop:"--"}% · ${wl}`);
+  set("sbPill",(NETOFF?"📵 ":"")+(steps.length?("스텝 "+Math.min(idx+1,steps.length)+" / "+steps.length):"Day "+(curDay+1)));
+  setHTML("sbWx",`${wi} <b>${escapeHtml(dest())} ${w?w.temp+"°":"--"}</b> · 💧${w?w.pop:"--"}% · ${wl}${wxStaleTxt()}`);
   setHTML("bannerWrap",bannerHTML(steps,idx,at,cur));
   setHTML("rainStrip",rainStripHTML(at));
   set("nbVerb",`${d.verb[1]}`); set("nbName",d.name); set("nbSub",d.sub);
@@ -848,6 +888,7 @@ function renderTimeline(){
   const steps=buildSteps(), at=nowMinutes(), idx=currentStepIndex(steps,at);
   let html=destBar()+daySwitcher()+`<div class="topbar"><h2>Day ${curDay+1} 동선</h2><button class="icbtn" onclick="shareLink()" title="공유">${IC_SHARE}</button></div><div class="wrap">`;
   if(steps.length===0){ html+=`<p class="muted">이 날 일정이 비었어요. ➕ 담기 탭에서 장소를 담아보세요.</p><button class="btn primary" style="margin-top:10px" onclick="gotoAdd()">➕ 장소 담으러 가기</button></div>`; return html; }
+  html+=`<p class="muted" style="margin:0 0 10px;font-size:12px">카드를 <b style="color:var(--tx2)">꾹 눌러 끌면</b> 순서가 바뀌어요 · 📌 시각을 고정하면 자동 정리에서도 지켜져요</p>`;
   let lastR=null; const sun=sunMin(curDate());
   let sunR=sun?sun.rise:null, sunS=sun?sun.set:null;   /* 일출·일몰을 시간 순서에 맞춰 라인으로 삽입 */
   const sunLine=(ic,lab,t)=>`<div class="sunline"><span>${ic} ${lab} ${minToHM(t).slice(0,5)}</span></div>`;
@@ -855,7 +896,7 @@ function renderTimeline(){
     if(sunR!=null&&s.arrive>sunR){ html+=sunLine("🌅","일출",sunR); sunR=null; }
     if(sunS!=null&&s.arrive>sunS){ html+=sunLine("🌇","일몰",sunS); sunS=null; }
     if(s.area!==lastR){ html+=`<div class="region-h">${escapeHtml(s.area)}</div>`; lastR=s.area; }
-    if(s.travel){ const M=MODES[TRIP.mode||"transit"]; const SL={odsay:"실측",osrm:"실측",road:"도로기반",busan:"부산권",est:"추정"}; const tag=SL[s.travelSrc]||"추정"; html+=`<div class="travel"><span class="ln"></span>${M.ic} ${M.label} ${s.travel}분 <span style="opacity:.6">· ${tag}</span></div>`; }
+    if(s.travel){ const M=MODES[TRIP.mode||"transit"]; const SL={user:"직접 확인",odsay:"실측",osrm:"실측",road:"도로기반",busan:"부산권",est:"추정"}; const tag=SL[s.travelSrc]||"추정"; html+=`<div class="travel" onclick="openLegTime(${i})" style="cursor:pointer" title="카카오맵에서 확인·직접 입력"><span class="ln"></span>${M.ic} ${M.label} ${s.travel}분 <span style="opacity:.6">· ${tag}</span> <span style="opacity:.45">✎</span></div>`; }
     const w=wxAt(curDate(),s.arrive), cls=i<idx?"done":(i===idx?"now":"");
     let meta=`${minToHM(s.arrive).slice(0,5)}–${minToHM(s.depart).slice(0,5)}`; if(w) meta+=` · 💧${w.pop}%`;
     let badge=""; if(s.kind==="place"&&s.place.type==="eat"){ const st=bizStatus(s.place,s.arrive,curDate()); badge=`<span class="bdg ${st.k}" style="font-size:11px">${st.t}</span>`; }
@@ -865,14 +906,12 @@ function renderTimeline(){
     const pid=s.kind==="place"?s.place.id:"";
     html+=`<div class="tl-item"${pid?` data-pid="${pid}"`:` data-fixed="1"`}><div class="tl-time"${pid?` onclick="openTimeEdit('${pid}')" style="cursor:pointer"`:""}>${minToHM(s.arrive).slice(0,5)}${s.fixed?" (고정)":""}<small>${s.kind==="air"?"도착":s.kind==="stay"?"숙소":TYPE_META[s.place.type].label}</small></div>
       <div class="tl-body ${cls}"><div class="tl-name">${cls==="done"?'<span style="color:var(--ok);font-weight:700">✓</span> ':""}${typeIc(s)} ${escapeHtml(s.name)} ${badge}</div>
-        <div class="tl-meta">${meta}</div>${s.kind==="place"&&s.place.menu?`<div class="tl-note" style="font-style:normal;color:var(--warn)">🍜 ${escapeHtml(s.place.menu.length>46?s.place.menu.slice(0,46)+"…":s.place.menu)}</div>`:""}${s.kind==="place"&&s.place.note?`<div class="tl-note">“${escapeHtml(s.place.note.length>42?s.place.note.slice(0,42)+"…":s.place.note)}”</div>`:""}<div class="tl-acts"><button class="go" onclick="openRoute(${stepArg(s)})">길찾기</button>${s.kind==="place"&&s.place.type==="eat"?`<button onclick="openMenuPickPlace('${pid}')">🍜 뭐먹지</button>`:""}${s.kind==="place"?`<button onclick="openTimeEdit('${pid}')">시각</button><button onclick="openVisitNote('${pid}')">기록</button>`:""}</div></div>
-      ${s.kind==="place"?`<div class="move"><button onclick="movePlace('${s.place.id}',-1)">▲</button><button onclick="movePlace('${s.place.id}',1)">▼</button></div>`:`<div class="move"></div>`}</div>`;
+        <div class="tl-meta">${meta}</div>${s.kind==="place"&&s.place.menu?`<div class="tl-note" style="font-style:normal;color:var(--warn)">🍜 ${escapeHtml(s.place.menu.length>46?s.place.menu.slice(0,46)+"…":s.place.menu)}</div>`:""}${s.kind==="place"&&s.place.note?`<div class="tl-note">“${escapeHtml(s.place.note.length>42?s.place.note.slice(0,42)+"…":s.place.note)}”</div>`:""}<div class="tl-acts"><button class="go" onclick="openRoute(${stepArg(s)})">길찾기</button>${s.kind==="place"&&s.place.type==="eat"?`<button onclick="openMenuPickPlace('${pid}')">🍜 뭐먹지</button>`:""}${s.kind==="place"?`<button onclick="openTimeEdit('${pid}')">📌 시각</button><button onclick="openVisitNote('${pid}')">기록</button>`:""}</div></div></div>`;
   });
   if(sunS!=null) html+=sunLine("🌇","일몰",sunS);   /* 일정이 일몰 전에 끝나면 마지막에 표시 */
   html+=`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">최적 코스로 자동 정리</button>
-    <button class="btn line" style="margin-top:8px" onclick="openCourseMap()">카카오맵에서 코스 한 번에 보기</button>
-    <button class="btn line" style="margin-top:8px" onclick="autoCluster()">같은 동네끼리 묶기</button>
-    <button class="btn line" style="margin-top:8px" onclick="openRecap()">여행 리캡 카드 — 이미지로 공유</button></div>`; return html;
+    <p class="muted" style="margin:6px 2px 0;font-size:12px">📌 고정한 시각과 끼니는 지키고, 나머지를 실측 도로거리 기준 최소 동선으로 정렬해요.</p>
+    <button class="btn line" style="margin-top:10px" onclick="openCourseMap()">카카오맵에서 코스 한 번에 보기</button></div>`; return html;
 }
 function typeIc(s){ if(s.kind==="air")return "🛬"; if(s.kind==="stay")return "🏨"; return TYPE_META[s.place.type].ic; }
 function gotoAdd(){ setTab("add"); }
@@ -919,7 +958,7 @@ function renderAdd(){
     <div class="sec-title">Day ${curDay+1} 장소 (${day.places.length})</div>
     ${day.stay?`<div class="added"><div class="i" style="background:rgba(167,139,250,.18)">🏨</div><div class="nm"><b>${escapeHtml(day.stay.name)}</b><span>이 날 밤 숙소 · ${escapeHtml(day.stay.area)}</span></div><button class="del" onclick="removeStay()">×</button></div>`:""}
     <div id="placeList">${renderPlaceList()}</div>
-    ${day.places.length>=2?`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button><p class="muted" style="margin:6px 2px 0;font-size:12px">맛집은 아침·점심·저녁 시간에 자동 배정, 볼거리는 가까운 순으로 엮어 동선을 최소화해요.</p>`:""}`;
+    ${day.places.length>=2?`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">✨ 최적 코스로 자동 정리</button><p class="muted" style="margin:6px 2px 0;font-size:12px">📌 고정한 시각과 끼니는 지키고, 나머지를 실측 도로거리 기준 최소 동선으로 정렬해요.</p>`:""}`;
   }
   return `${destBar()}${isWish?"":daySwitcher()}<div class="topbar"><h2>장소 담기</h2><button class="icbtn" onclick="shareLink()" title="공유 링크">${IC_SHARE}</button></div><div class="wrap">
     <div class="assist"><div style="flex:none">${mascot(skyMoodNow(),false,assistEmo(),true)}</div><div class="ab">${assistantTip()}</div></div>
@@ -968,8 +1007,9 @@ function renderTrip(){
         <button class="ck${mealOn(m)?" on":""}" style="padding:4px 11px;font-size:12px" onclick="toggleMealOn('${m}')">${mealOn(m)?"먹어요":"안 먹어요"}</button></label>
       <input class="input" type="time" value="${escapeHtml(TRIP.meal[m]||(m==="breakfast"?"08:00":m==="lunch"?"12:00":"18:00"))}" onchange="setMeal('${m}',this.value)" ${mealOn(m)?"":"disabled style=opacity:.35"}></div>`).join("")}
     <div class="field"><label>막차 마지노선 <span class="muted">(이 시각보다 마지막 일정이 늦으면 경고)</span></label><input class="input" type="time" value="${escapeHtml(TRIP.lastBack||"23:30")}" onchange="setField('lastBack',this.value)"></div>
-    <div class="sec-title">공유·데이터</div>
+    <div class="sec-title">공유·기록</div>
     <button class="btn primary" onclick="shareLink()">🔗 동행자에게 일정 공유</button>
+    <button class="btn line" style="margin-top:8px" onclick="openFootprint()">🗺️ 나의 여행 발자국 — 전국 정복 지도</button>
     <button class="btn line" style="margin-top:8px" onclick="openSettings()">🔌 API 연동 (선택)</button>
     <button class="btn line" style="margin-top:8px" onclick="resetTrip()">이 여행 전체 초기화</button>
     <p class="muted" style="margin-top:12px;text-align:center">자동 저장됨 · 데이터는 이 기기에만 · 버전 ${APP_VER}</p></div>`;
@@ -987,9 +1027,9 @@ function bindScreen(){ if(screen==="add"&&addTarget==="day"){ const t=document.g
   ["ckReserve","ckCash","ckIndoor"].forEach(id=>{const e=document.getElementById(id);if(e)e.onclick=()=>e.classList.toggle("on");}); }
   if(screen==="timeline") bindTimelineDnD(); }
 /* 길게 눌러 드래그 순서변경 (타임라인) */
-let DND=null; const LP=480, SLOP=10;
+let DND=null; const LP=320, SLOP=10;   /* 길게 누르기 480→320ms — 드래그가 유일한 순서변경 수단이 되면서 잡기 쉽게 */
 function bindTimelineDnD(){ document.querySelectorAll(".wrap .tl-item[data-pid]").forEach(row=>row.addEventListener("pointerdown",dndDown)); }
-function dndDown(e){ if(e.button>0) return; if(e.target.closest(".tl-acts,.move,button,a,.tl-time")) return;
+function dndDown(e){ if(e.button>0) return; if(e.target.closest(".tl-acts,button,a,.tl-time")) return;
   const row=e.currentTarget; DND={row,pid:row.dataset.pid,x0:e.clientX,y0:e.clientY,ptr:e.pointerId,armed:false,ghost:null,drop:null,timer:setTimeout(()=>dndArm(),LP)};
   row.addEventListener("pointermove",dndMove,{passive:false}); row.addEventListener("pointerup",dndUp); row.addEventListener("pointercancel",dndUp); }
 function dndArm(){ if(!DND) return; DND.armed=true; try{getSelection().removeAllRanges();}catch(_){} if(navigator.vibrate) try{navigator.vibrate(12);}catch(_){}
@@ -1067,8 +1107,7 @@ function addManual(){ const name=document.getElementById("nName").value.trim(); 
   else TRIP.days[curDay].places.push(mkPlace(name,"see",area,seeIndoorVal,Object.assign({dur:75},geo||{})));
   MSEL=null; setHTML("nSuggest",""); save(); render(); toast(name+" 추가됨"); }
 function removePlace(id){ const p=TRIP.days[curDay].places.find(x=>x.id===id); snapshot(); TRIP.days[curDay].places=TRIP.days[curDay].places.filter(x=>x.id!==id); save(); render(); toast((p?p.name:"장소")+" 삭제됨", true); }
-function movePlace(id,dir){ const arr=TRIP.days[curDay].places, i=arr.findIndex(p=>p.id===id), j=i+dir; if(i<0||j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); render(); }
-function autoCluster(){ const arr=TRIP.days[curDay].places, order=[],byR={}; arr.forEach(p=>{ if(!byR[p.area]){byR[p.area]=[];order.push(p.area);} byR[p.area].push(p); }); TRIP.days[curDay].places=order.flatMap(r=>byR[r]); save(); render(); toast("같은 동네끼리 정리했어요"); }
+/* 순서 변경은 타임라인 길게 눌러 드래그(bindTimelineDnD)로 일원화 — ▲▼ 버튼·동네 묶기 제거(사용자 피드백: 최적 정리가 있어 안 쓰임) */
 /* ✨ 최적 코스: 맛집을 끼니시간에 자동배정 + 볼거리를 가까운 순으로 끼워넣어 동선 최소화(끼니 시간순 보존 2-opt) */
 const MO={breakfast:0,lunch:1,dinner:2};
 function mealLabel(m){ return m==="breakfast"?"아침":m==="lunch"?"점심":m==="dinner"?"저녁":""; }
@@ -1077,17 +1116,19 @@ function mealTime(m){ if(!mealOn(m)) return null; return (TRIP.meal&&TRIP.meal[m
 /* ── 최적화용 실측 도로거리 행렬 — OSRM table(1회 호출로 N×N). 직선거리는 강·산·다리를 무시해 한국 지형에서 순서가 어긋남 ── */
 let MMAT=null;   /* {k:{좌표키:idx}, d:[[km]]} — 설정 중이면 _d가 직선거리 대신 실측 도로거리 반환 */
 function mxKey(p){ return (+p.lat).toFixed(5)+","+(+p.lng).toFixed(5); }
+let MMAT_ERR=null;   /* buildMatrix 실패 사유("size"|"net") — 사용자 안내를 정확하게 */
 async function buildMatrix(nodes){
   const uniq=[],seen={};
   (nodes||[]).forEach(p=>{ if(!p||!p.lat||!p.lng) return; const k=mxKey(p); if(!seen[k]){ seen[k]=1; uniq.push(p); } });
-  if(uniq.length<2||uniq.length>25) return null;   /* 25곳 초과는 URL 길이·데모서버 부담 — 하루 일정 범위에선 충분 */
+  MMAT_ERR=null;
+  if(uniq.length<2||uniq.length>25){ if(uniq.length>25) MMAT_ERR="size"; return null; }   /* 25곳 초과는 URL 길이·데모서버 부담 — 하루 일정 범위에선 충분 */
   try{
     const cs=uniq.map(p=>p.lng+","+p.lat).join(";");
     const r=await tfetch(`https://router.project-osrm.org/table/v1/driving/${cs}?annotations=distance`,9000);
-    const j=await r.json(); if(!(j&&j.code==="Ok"&&j.distances)) return null;
+    const j=await r.json(); if(!(j&&j.code==="Ok"&&j.distances)){ MMAT_ERR="net"; return null; }
     const k={}; uniq.forEach((p,i)=>{ k[mxKey(p)]=i; });
     return {k,d:j.distances.map(row=>row.map(v=>v==null?null:v/1000))};   /* m→km: 폴백 haversine(km)과 단위 통일 */
-  }catch(e){ return null; }
+  }catch(e){ MMAT_ERR="net"; return null; }
 }
 function _d(a,b){
   if(MMAT&&a&&b&&a.lat&&b.lat){ const i=MMAT.k[mxKey(a)],j=MMAT.k[mxKey(b)]; if(i!=null&&j!=null&&MMAT.d[i]&&MMAT.d[i][j]!=null) return MMAT.d[i][j]; }
@@ -1111,10 +1152,13 @@ async function optimizeDay(di,silent){
   const withC=day.places.filter(p=>p.lat), noC=day.places.filter(p=>!p.lat);
   const start=(dd>0&&TRIP.days[dd-1].stay&&TRIP.days[dd-1].stay.lat)?TRIP.days[dd-1].stay:((dd===0&&TRIP.arrival&&TRIP.arrival.lat&&String(TRIP.arrival.name||"").trim())?TRIP.arrival:null);
   const end=(day.stay&&day.stay.lat)?day.stay:null;
+  const sig=day.places.map(p=>p.id).join(",");   /* await(최대 9초) 사이에 장소가 추가·삭제·이동되면 이 정렬 결과는 폐기 — 편집 유실 방지 */
   MMAT=await buildMatrix(start||end?[...withC,start,end]:withC);   /* 실측 도로거리 행렬 — 실패 시 null→직선거리 폴백. await 후 정렬은 동기 블록이라 동시 호출에도 안전 */
+  if(!TRIP.days[dd]||TRIP.days[dd]!==day||day.places.map(p=>p.id).join(",")!==sig){ MMAT=null; if(!silent) toast("정리 중에 일정이 바뀌어 취소했어요 — 다시 눌러주세요"); return false; }
   const dayStart=hmToMin(day.start)??600;
-  const anchored=withC.filter(p=>p.type==="eat"&&p.meal&&MO[p.meal]!=null&&mealTime(p.meal)!=null).map(p=>({p,t:hmToMin(mealTime(p.meal))||0})).sort((a,b)=>a.t-b.t);
-  const sees=withC.filter(p=>!(p.type==="eat"&&p.meal&&MO[p.meal]!=null&&mealTime(p.meal)!=null));
+  const isAnch=p=>(p.anchor&&hmToMin(p.anchor)!=null)||(p.type==="eat"&&p.meal&&MO[p.meal]!=null&&mealTime(p.meal)!=null);   /* 📌 사용자 고정 시각 ∪ 끼니 맛집 — 모두 시간축 앵커로 존중(이전엔 고정 시각을 무시하고 재배열해 '시간 역행'이 남) */
+  const anchored=withC.filter(isAnch).map(p=>({p,t:(p.anchor&&hmToMin(p.anchor)!=null)?hmToMin(p.anchor):(hmToMin(mealTime(p.meal))||0)})).sort((a,b)=>a.t-b.t);
+  const sees=withC.filter(p=>!isAnch(p));
   let route;
   if(!anchored.length){ route=orderSeg(withC,start,end); }   // 맛집 없으면 동선 최소(NN+2opt)
   else {
@@ -1134,7 +1178,8 @@ async function optimizeDay(di,silent){
   }
   const measured=!!MMAT; MMAT=null;
   day.places=route.concat(noC);
-  save(); if(!silent){ render(); toast(measured?"실측 도로거리 기준 최적 코스 완성 — 맛집은 끼니시간에":"최적 코스로 정리(직선거리 기준 — 네트워크 연결 시 더 정확)"); confetti(); } }
+  save(); if(!silent){ render(); toast(measured?"실측 도로거리 기준 최적 코스 완성 — 📌 고정 시각·끼니는 지켰어요":(MMAT_ERR==="size"?"장소가 많아 직선거리 기준으로 정리했어요":"최적 코스로 정리(직선거리 기준 — 네트워크 연결 시 더 정확)")); confetti(); }
+  return measured; }
 function resetTrip(){ if(confirm("모든 입력을 지울까요?")){ snapshot(); TRIP=blankTrip(); curDay=0; save(); setTab("add",false); WIZ={step:0}; render(); toast("초기화됨", true); } }
 
 /* ── 보관함(구상) — 가고 싶은 곳을 순서 없이 담아두면, 가까운 곳끼리 묶어(k-means) 일자별로 배분 후 각 날을 최적 정렬. UI는 담기 탭(renderAdd)에 통합 ── */
@@ -1163,6 +1208,10 @@ async function distributeWish(){
   const wish=(TRIP.wish||[]).slice(); if(wish.length<2){ toast("2곳 이상 담아주세요"); return; }
   snapshot(); toast("실측 도로거리로 코스 계산 중…");
   const pts=wish.filter(w=>w.lat&&w.lng), noC=wish.filter(w=>!w.lat||!w.lng);
+  if(pts.length<2){   /* 좌표 있는 항목이 2개 미만 — k-means 불가(기존엔 조용한 크래시). Day 1에 순서대로 담고 안내 */
+    wish.forEach(w=>TRIP.days[0].places.push(wishToPlace(w)));
+    TRIP.wish=[]; save(); curDay=0; setTab("timeline");
+    toast("위치를 아는 장소가 적어 Day 1에 순서대로 담았어요 — 검색으로 담으면 자동 배치돼요", true); return; }
   const k=Math.max(1,Math.min(daysCount(),pts.length));
   /* k-means: farthest-point 시드 → 8회 반복 → 하루 정원 밸런싱 */
   const seeds=[pts[0]]; while(seeds.length<k){ let best=null,bd=-1; pts.forEach(p=>{ const d=Math.min(...seeds.map(c=>_d(p,c))); if(d>bd){bd=d;best=p;} }); seeds.push(best); }
@@ -1186,8 +1235,9 @@ async function distributeWish(){
   ordered.forEach((g,di)=>{ const day=TRIP.days[Math.min(di,daysCount()-1)]; g.forEach(w=>day.places.push(wishToPlace(w))); });
   noC.forEach(w=>TRIP.days[0].places.push(wishToPlace(w)));
   TRIP.wish=[];
-  for(let di=0;di<daysCount();di++) await optimizeDay(di,true);   /* 각 날: 실측 도로거리 행렬 + 끼니 앵커 정렬(순차 await — MMAT 전역 공유) */
-  save(); curDay=0; setTab("timeline"); toast(wish.length+"곳을 "+ordered.length+"일로 나눠 실측 기준 코스를 짰어요", true); confetti(); }
+  let anyM=false;
+  for(let di=0;di<daysCount();di++) anyM=(await optimizeDay(di,true))||anyM;   /* 각 날: 실측 도로거리 행렬 + 끼니 앵커 정렬(순차 await — MMAT 전역 공유) */
+  save(); curDay=0; setTab("timeline"); toast(wish.length+"곳을 "+ordered.length+"일로 나눠 "+(anyM?"실측 기준 ":"")+"코스를 짰어요", true); confetti(); }
 
 /* ----- 여행지(지도) 선택 ----- */
 /* 지도 색·클릭·라벨은 SIDO2REGION(9개 도, 남/북 분리) 사용 */
@@ -1265,12 +1315,14 @@ function fetchMustVisit(city){
     ps.categorySearch("AT4",add,{location:loc,radius:10000,sort:kakao.maps.services.SortBy.DISTANCE});
   });
 }
+function haveNames(){ const s=new Set(); if(TRIP){ (TRIP.wish||[]).forEach(w=>s.add(w.name)); TRIP.days.forEach(d=>(d.places||[]).forEach(p=>s.add(p.name))); } return s; }   /* 추천 목록 '담김' 배지·중복 담기 방지용 */
 function renderMustList(list,note){
+  const have=haveNames();
   setHTML("mvList", (note?`<p class="muted" style="margin:0 0 8px">${note}</p>`:"") + list.map((p,i)=>{
     const thumb=p.img?`<img src="${escapeHtml(p.img)}" alt="" loading="lazy" decoding="async" style="width:42px;height:42px;border-radius:8px;object-fit:cover;flex:none;background:rgba(255,255,255,.06)">`:"";
     const link=p.url||("https://map.kakao.com/?q="+encodeURIComponent(p.name));   /* 카카오 경유=장소 상세(평점·영업시간), 관광공사=이름 검색 딥링크 */
     const hasInfo=!!(p.id&&p.ct);   /* 관광공사 항목 = contentid로 상세(소개·이용시간·휴무·메뉴) 조회 가능 */
-    return `<div class="poi"><input type="checkbox" ${i<6?"checked":""} id="mv_${i}" style="width:20px;height:20px;flex:none;accent-color:var(--accent)">${thumb}<div class="nm"${hasInfo?` onclick="openTourInfo('${jsStr(String(p.id))}',${+p.ct||12})" style="cursor:pointer"`:""}><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.cat||"명소")}${p.period?` · ${escapeHtml(p.period)}`:""}${p.dist?` · ${fmtDist(p.dist)}`:""}${hasInfo?` · <u>상세 보기</u>`:""}</span></div><button class="go" onclick="openLink('${jsStr(link)}')">지도</button></div>`;
+    return `<div class="poi"><input type="checkbox" ${have.has(p.name)?"":(i<6?"checked":"")} id="mv_${i}" style="width:20px;height:20px;flex:none;accent-color:var(--accent)">${thumb}<div class="nm"${hasInfo?` onclick="openTourInfo('${jsStr(String(p.id))}',${+p.ct||12})" style="cursor:pointer"`:""}><b>${escapeHtml(p.name)}${have.has(p.name)?' <span class="bdg ok" style="font-size:10px;padding:2px 6px">담김</span>':""}</b><span>${escapeHtml(p.cat||"명소")}${p.period?` · ${escapeHtml(p.period)}`:""}${p.dist?` · ${fmtDist(p.dist)}`:""}${hasInfo?` · <u>상세 보기</u>`:""}</span></div><button class="go" onclick="openLink('${jsStr(link)}')">지도</button></div>`;
   }).join("") + `<button class="btn primary" style="margin-top:12px" onclick="addMustVisit()">＋ 체크한 곳 담기</button>`);
 }
 async function addMustVisit(){ const list=MVLIST||[]; let n=0; snapshot();
@@ -1279,7 +1331,7 @@ async function addMustVisit(){ const list=MVLIST||[]; let n=0; snapshot();
     if(recTarget==="wish"){ if(pushWish({id:uid(),name:p.name,type:"see",lat:coords?coords.lat:areaCoords(area).lat,lng:coords?coords.lng:areaCoords(area).lng,area,city:dest()})) n++; return; }
     TRIP.days[curDay].places.push(mkPlace(p.name,"see",area,false,coords?{lat:coords.lat,lng:coords.lng}:null)); n++; });
   save(); closeSheet();
-  if(recTarget!=="wish"&&n>=2){ toast("실측 도로거리 계산 중…"); await optimizeDay(curDay,true); setTab("timeline"); toast(n+"곳을 담아 실측 기준 최적 코스로 정리했어요",true); }   /* 담기→실측 정렬→타임라인 원스톱(setTab이 렌더). 위 snapshot이 담기+정렬 통째 복원(silent optimizeDay는 자체 snapshot 생략) */
+  if(recTarget!=="wish"&&n>=2){ toast("실측 도로거리 계산 중…"); const m=await optimizeDay(curDay,true); setTab("timeline"); toast(n+"곳을 담아 "+(m?"실측 기준 ":"")+"최적 코스로 정리했어요",true); }   /* 담기→실측 정렬→타임라인 원스톱(setTab이 렌더). 위 snapshot이 담기+정렬 통째 복원(silent optimizeDay는 자체 snapshot 생략) */
   else { render(); toast(n+(recTarget==="wish"?"곳을 보관함에 담았어요":"곳을 Day "+(curDay+1)+"에 담았어요")); }
   if(n) confetti(); }
 /* 행사 상세 — 목록의 기간(1.1–12.31)은 시즌 범위일 뿐, "매주 토요일 20시" 같은 실제 운영 일정은 상세 API(detailIntro2)에만 있음 */
@@ -1328,6 +1380,7 @@ function openMustVisit(tgt){ recTarget=tgt||"day"; const city=dest(); mvCat="hot
 }
 function mvPick(c){ mvCat=c; document.querySelectorAll("#mvCats .ck").forEach(b=>b.classList.toggle("on",b.dataset.mc===c)); setHTML("mvList",`<p class="muted">불러오는 중…</p>`); mvLoad(); }
 function mvLoad(){
+  if(!navigator.onLine){ setHTML("mvList",`<p class="muted">오프라인이에요 — 연결되면 다시 눌러주세요.</p>`); return; }   /* 무한 '불러오는 중…' 방지 */
   const city=dest(), myReq=++recSeq, c=cityObj();
   if(!TOUR_KEY){ mustVisitKakao(city,myReq); return; }
   if(mvCat==="fest"){
@@ -1427,12 +1480,13 @@ function renderPlayList(list,region,t){
   if(adm&&recRev100) view=view.filter(p=>(p.reviews||0)>=100);
   view=sortRec(view);
   const pnote=adm?starNote(list):"";
+  const have=haveNames();
   setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · 인기·추천순 명소 ${view.length}곳${recBase?` · 거리는 ${escapeHtml(recBase.name)} 기준`:""}${pnote}</div>`+recSortBar()+
     view.map(p=>{ const thumb=p.img?`<img src="${escapeHtml(p.img)}" alt="" loading="lazy" decoding="async" style="width:46px;height:46px;border-radius:8px;object-fit:cover;flex:none;margin-right:4px;background:rgba(255,255,255,.06)">`:"";
       const star=(adm&&p.rating!=null)?`⭐${(+p.rating).toFixed(1)}${p.reviews!=null?` (${p.reviews})`:""}`:"";
       const meta=[(p._why||[]).join(" "), star, escapeHtml(p.cat||"명소"), p.dist?fmtDist(p.dist):""].filter(Boolean).join(" · ");
       const chk=(adm&&String(p.url||"").includes("place.map.kakao.com"))?`<button class="go" onclick="openReviewCheck('${jsStr(String(p.id))}','${jsStr(p.name)}',${+p.reviews||0})">점검</button>`:"";
-      return `<div class="poi">${thumb}<div class="nm"><b>${escapeHtml(p.name)}</b><span>${meta}</span></div>
+      return `<div class="poi">${thumb}<div class="nm"><b>${escapeHtml(p.name)}${have.has(p.name)?' <span class="bdg ok" style="font-size:10px;padding:2px 6px">담김</span>':""}</b><span>${meta}</span></div>
       ${chk}<button class="go" onclick="openLink('${jsStr(p.url)}')">지도</button><button class="add" onclick="addRec('${jsStr(p.name)}','${t}','${jsStr(region)}',${(+p.y||0)},${(+p.x||0)})">＋추가</button></div>`;
     }).join("")); }
 function kakaoPlayFame(region,c){   /* 카카오 키워드검색 정확도순 = 유명도 프록시(맛집과 동일 신호) */
@@ -1540,16 +1594,18 @@ function renderKakaoList(list,region,kind,t,note){
   if(kind==="eat"&&recCuisine!=="all") view=view.filter(p=>p.cuisine===recCuisine);
   if(adm&&recRev100) view=view.filter(p=>(p.reviews||0)>=100);
   view=sortRec(view);
+  const have=haveNames();
   setHTML("recList",`<div style="font-size:13px;color:var(--tx2);margin:8px 2px">${escapeHtml(region)} · Kakao · ${view.length}곳${hint}${note||""}</div>`+chips+recSortBar()+
     view.map(p=>{
       const star = (adm&&p.rating!=null) ? `⭐${(+p.rating).toFixed(1)}${p.reviews!=null?` (${p.reviews})`:""}` : "";
       const meta = [(p._why||[]).join(" "), star, escapeHtml(p.cat), p.dist?fmtDist(p.dist):""].filter(Boolean).join(" · ");
       const chk = (adm&&String(p.url||"").includes("place.map.kakao.com")) ? `<button class="go" onclick="openReviewCheck('${jsStr(String(p.id))}','${jsStr(p.name)}',${+p.reviews||0})">점검</button>` : "";
       const menuBtn = kind==="eat" ? `<button class="go" onclick="openMenuPick('${jsStr(p.name)}',${(+p.y||0)},${(+p.x||0)},'${jsStr(String(p.id||""))}')">🍜</button>` : "";
-      return `<div class="poi"><div class="nm"><b>${escapeHtml(p.name)}</b><span>${meta}</span></div>
+      return `<div class="poi"><div class="nm"><b>${escapeHtml(p.name)}${have.has(p.name)?' <span class="bdg ok" style="font-size:10px;padding:2px 6px">담김</span>':""}</b><span>${meta}</span></div>
       ${chk}${menuBtn}<button class="go" onclick="openLink('${jsStr(p.url)}')">${goLabel}</button><button class="add" onclick="addRec('${jsStr(p.name)}','${t}','${jsStr(region)}',${(+p.y||0)},${(+p.x||0)})">＋추가</button></div>`;
     }).join("")); }
 function showRec(region,kind){ const t=kind==="eat"?"eat":"see"; const ck2=region+"|"+kind; const myReq=++recSeq; lastRec={r:region,k:kind}; recCuisine="all";
+  if(!navigator.onLine&&!RECCACHE[ck2]){ setHTML("recList",`<p class="muted">오프라인이에요 — 연결되면 다시 눌러주세요.</p>`); return; }
   if(kind!=="eat"){ playRec(region,t,ck2,myReq); return; }   /* 놀거리·볼거리 = 인기·추천순(카카오 정확도) + 관광공사 사진 */
   if(!KAKAO_KEY){ curatedRec(region,kind,t); return; }
   if(RECCACHE[ck2]){ renderKakaoList(RECCACHE[ck2],region,kind,t); return; }
@@ -1575,13 +1631,14 @@ function pushWish(w){ if(!TRIP.wish) TRIP.wish=[];
 function addRec(name,type,area,lat,lng){
   if(recTarget==="wish"){ const g=(lat&&lng)?{lat:+lat,lng:+lng}:areaCoords(area);
     if(pushWish({id:uid(),name,type:type==="eat"?"eat":"see",lat:g.lat,lng:g.lng,area,city:dest()})) toast(name+" → 보관함에 담김"); return; }
+  if(TRIP.days[curDay].places.some(x=>x.name===name)){ toast("이미 Day "+(curDay+1)+"에 있어요"); return; }   /* 중복 담기 방지 */
   TRIP.days[curDay].places.push(mkPlace(name,type,area,false,(lat&&lng)?{lat:+lat,lng:+lng}:null)); save(); if(screen==="add") render(); toast(name+" → Day "+(curDay+1)+" 추가"); }   /* 시트 뒤 목록 즉시 갱신(시트는 #app 밖) */
 
 /* 일정 시각 조정 */
 let teDurCur=60;
 function openTimeEdit(id){ const p=TRIP.days[curDay].places.find(x=>x.id===id); if(!p) return; teDurCur=p.dur??TYPE_META[p.type].dur??60;
-  openSheet(`<h3>${escapeHtml(p.name)}</h3>
-    <div class="field"><label>도착 시각 고정 <span class="muted">(비우면 자동 계산)</span></label><input class="input" type="time" id="teAnchor" value="${escapeHtml(p.anchor||"")}"></div>
+  openSheet(`<h3>📌 ${escapeHtml(p.name)}</h3>
+    <div class="field"><label>도착 시각 고정 <span class="muted">(비우면 자동 계산 · 고정하면 '최적 코스 자동 정리'도 이 시각을 기준으로 나머지를 배치해요)</span></label><input class="input" type="time" id="teAnchor" value="${escapeHtml(p.anchor||"")}"></div>
     <div class="field"><label>머무는 시간</label><div class="stepper"><button onclick="teDur(-10)">−</button><span class="v" id="teDurV">${teDurCur}분</span><button onclick="teDur(10)">＋</button></div></div>
     <button class="btn primary" onclick="saveTimeEdit('${id}')">적용</button>
     ${p.anchor?`<button class="btn line" style="margin-top:8px" onclick="clearAnchor('${id}')">시각 고정 해제</button>`:""}
@@ -1610,128 +1667,31 @@ function saveVisitNote(id){ const p=findPlace(id); if(!p) return;
   save(); closeSheet(); render(); toast("기록 저장됨"); }
 function clearVisitNote(id){ const p=findPlace(id); if(p){ p.rate=null; p.note=null; save(); closeSheet(); render(); toast("기록 삭제됨"); } }
 
-/* ── 여행 리캡 카드 — 전체 동선·거리·기록을 인스타 스토리(1080×1920) 이미지로 ── */
-function recapStats(){
-  const days=[]; let pts=0, visited=0, rated=0, rsum=0, best=null;
-  TRIP.days.forEach(d=>{ const arr=(d.places||[]).filter(p=>p.lat&&p.lng); days.push(arr); pts+=arr.length;
-    (d.places||[]).forEach(p=>{ if(p.visitedAt) visited++; if(p.rate){ rated++; rsum+=p.rate; if(!best||p.rate>best.rate) best=p; } }); });
-  let km=0; days.forEach(arr=>{ for(let i=1;i<arr.length;i++) km+=haversine(arr[i-1],arr[i])*1.3; });   /* 도로 환산(우회율 1.3) */
-  const n=TRIP.days.reduce((s,d)=>s+(d.places||[]).length,0);
-  const d0=new Date(TRIP.startDate+"T00:00:00"), d1=new Date(d0); d1.setDate(d0.getDate()+TRIP.days.length-1);
-  const md=dt=>(dt.getMonth()+1)+"/"+dt.getDate();
-  return { days, pts, n, visited, rated, avg:rated?(rsum/rated):0, best, km,
-    range: md(d0)+(TRIP.days.length>1?" – "+md(d1):"")+" · "+TRIP.days.length+"일", city:dest() };
+/* ── 나의 여행 발자국 — 전국 지도에 방문 권역을 색칠(리캡 카드 대체). 도착 체크인(visitedAt) 기준, 모든 여행 합산 ── */
+async function openFootprint(){
+  persist();
+  openSheet(`<h3>나의 여행 발자국</h3><p class="muted" style="margin-bottom:8px">'여기 도착했어요'로 체크인한 곳 기준 · 모든 여행 합산이에요.</p><div id="fpBox"><p class="muted">지도를 불러오는 중…</p></div>`);
+  try{ if(!Object.keys(ALLCITY).length) await loadCities(); }catch(e){}
+  try{ if(!KMAP) KMAP=await loadKoreaMap(); }catch(e){}
+  const cities=new Set(), regions=new Set(); let n=0, trips=0;
+  TRIPS.forEach(e=>{ const t=e.trip; if(!t||!Array.isArray(t.days)) return; let any=false;
+    t.days.forEach(d=>(d.places||[]).forEach(p=>{ if(!p.visitedAt) return; any=true; n++;
+      const c=p.city; if(!c||!(curatedFor(c)||ALLCITY[c])) return;   /* 미확인 도시는 권역 오귀속 방지 위해 제외(cityData 폴백=부산) */
+      cities.add(c); const rg=cityRegion(c); if(rg) regions.add(rg); }));
+    if(any) trips++; });
+  const el=document.getElementById("fpBox"); if(!el) return;
+  const svg=KMAP?`<svg class="kmap" viewBox="0 0 ${KMAP.W} ${KMAP.H}" xmlns="http://www.w3.org/2000/svg" style="max-width:300px">
+    ${KMAP.entries.map(e2=>`<path d="${e2.d}" fill="${regions.has(e2.macro)?(REGIONCOL[e2.macro]||"#556"):"rgba(255,255,255,.07)"}" stroke="rgba(255,255,255,${regions.has(e2.macro)?".4":".12"})" stroke-width="1.2"></path>`).join("")}
+    ${KMAP.labels.map(l=>`<text x="${l.x.toFixed(0)}" y="${(l.y+4).toFixed(0)}"${regions.has(l.macro)?"":' opacity=".3"'}>${l.macro}</text>`).join("")}</svg>`:`<p class="muted">지도를 불러오지 못했어요 — 네트워크 확인 후 다시 열어주세요.</p>`;
+  el.innerHTML=`${svg}
+    <div style="display:flex;gap:8px;margin-top:12px;text-align:center">
+      <div style="flex:1"><div style="font-size:24px;font-weight:800;color:var(--accent)">${regions.size}<span style="font-size:12px;color:var(--tx3)">/9</span></div><div class="muted" style="font-size:11px">정복 권역</div></div>
+      <div style="flex:1"><div style="font-size:24px;font-weight:800">${cities.size}</div><div class="muted" style="font-size:11px">도시</div></div>
+      <div style="flex:1"><div style="font-size:24px;font-weight:800">${n}</div><div class="muted" style="font-size:11px">방문한 곳</div></div>
+      <div style="flex:1"><div style="font-size:24px;font-weight:800">${trips}</div><div class="muted" style="font-size:11px">여행</div></div>
+    </div>
+    ${regions.size>=9?`<p style="text-align:center;margin-top:12px;font-size:15px;font-weight:700;color:#ffd166">🏆 전국 정복!</p>`:n?`<p class="muted" style="text-align:center;margin-top:12px">다음 여행으로 지도를 더 칠해보세요</p>`:`<p class="muted" style="text-align:center;margin-top:12px">여행 중 '여기 도착했어요'를 누르면 발자국이 남아요</p>`}`;
 }
-/* 지도 타일(CARTO dark, OSM 기반 — 무료·다크·CORS 허용, 출처표기 필수) + OSRM 도로 geometry로 실제 지도 위 경로를 그림 */
-function ll2w(lat,lng,z){ const n=256*Math.pow(2,z); const xx=(lng+180)/360*n; const s=Math.sin(lat*Math.PI/180); const yy=(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n; return {x:xx,y:yy}; }
-function loadTile(z,tx,ty){ return new Promise(res=>{ const im=new Image(); im.crossOrigin="anonymous";
-  const to=setTimeout(()=>res(null),6000);
-  im.onload=()=>{ clearTimeout(to); res(im); }; im.onerror=()=>{ clearTimeout(to); res(null); };
-  im.src=`https://basemaps.cartocdn.com/dark_all/${z}/${tx}/${ty}@2x.png`; }); }
-function fetchDayGeom(arr){ if(arr.length<2) return Promise.resolve(null);
-  const cs=arr.slice(0,12).map(p=>p.lng+","+p.lat).join(";");
-  return tfetch(`https://router.project-osrm.org/route/v1/driving/${cs}?overview=full&geometries=geojson`,5000)
-    .then(r=>r.json()).then(j=>(j&&j.code==="Ok"&&j.routes&&j.routes[0])?{coords:j.routes[0].geometry.coordinates,dist:j.routes[0].distance/1000}:null)
-    .catch(()=>null); }
-async function buildRecap(cv){
-  const s=recapStats(), W=1080, H=1920; cv.width=W; cv.height=H;
-  const x=cv.getContext("2d"), F="Pretendard,'Malgun Gothic','Apple SD Gothic Neo',sans-serif";
-  const bg=x.createLinearGradient(0,0,W,H); bg.addColorStop(0,"#0b1224"); bg.addColorStop(1,"#111d33");
-  x.fillStyle=bg; x.fillRect(0,0,W,H);
-  const M={x:0,y:330,w:W,h:1120};   /* 지도 영역(풀블리드) */
-  /* 도로 geometry (일자별, 병렬) — 실패 시 직선 폴백 */
-  const geoms=await Promise.all(s.days.map(a=>fetchDayGeom(a)));
-  let roadKm=0, roadOK=false; geoms.forEach(g=>{ if(g){ roadKm+=g.dist; roadOK=true; } });
-  const km=roadOK?roadKm:s.km;
-  /* bbox = geometry(있으면) + 장소 전체 */
-  let mnLa=1e9,mxLa=-1e9,mnLn=1e9,mxLn=-1e9, has=false;
-  const feed=(la,ln)=>{ mnLa=Math.min(mnLa,la); mxLa=Math.max(mxLa,la); mnLn=Math.min(mnLn,ln); mxLn=Math.max(mxLn,ln); has=true; };
-  s.days.flat().forEach(p=>feed(p.lat,p.lng));
-  geoms.forEach(g=>{ if(g) g.coords.forEach(c=>feed(c[1],c[0])); });
-  let tilesOK=false, P=null;
-  if(has){
-    let z=15; for(;z>=4;z--){ const a=ll2w(mxLa,mnLn,z), b=ll2w(mnLa,mxLn,z); if((b.x-a.x)<=M.w-200&&(b.y-a.y)<=M.h-260) break; }
-    const c=ll2w((mnLa+mxLa)/2,(mnLn+mxLn)/2,z), vx=c.x-M.w/2, vy=c.y-M.h/2;
-    P=p=>{ const w=ll2w(p.lat,p.lng,z); return {x:M.x+w.x-vx, y:M.y+w.y-vy}; };
-    /* 타일 로드·그리기 */
-    const tx0=Math.floor(vx/256), tx1=Math.floor((vx+M.w)/256), ty0=Math.floor(vy/256), ty1=Math.floor((vy+M.h)/256);
-    const jobs=[]; for(let ty=ty0;ty<=ty1;ty++) for(let tx=tx0;tx<=tx1;tx++) jobs.push({tx,ty});
-    if(jobs.length<=48){
-      const imgs=await Promise.all(jobs.map(j=>loadTile(z,j.tx,j.ty)));
-      const okN=imgs.filter(Boolean).length;
-      if(okN>=jobs.length*0.7){ tilesOK=true;
-        x.save(); x.beginPath(); x.rect(M.x,M.y,M.w,M.h); x.clip();
-        jobs.forEach((j,i)=>{ if(imgs[i]) x.drawImage(imgs[i], M.x+j.tx*256-vx, M.y+j.ty*256-vy, 256, 256); });
-        x.fillStyle="rgba(11,18,36,.22)"; x.fillRect(M.x,M.y,M.w,M.h);   /* 브랜드 톤 */
-        x.restore();
-      }
-    }
-  }
-  /* 경로 — 도로 geometry(도로 위) 또는 직선 폴백. 글로우 스트로크 */
-  if(has&&P){
-    const DC=["#ffd166","#3fe39a","#6ea8ff","#ff9f43","#a78bfa","#ff7a7a"];
-    x.save(); x.beginPath(); x.rect(M.x,M.y,M.w,M.h); x.clip();
-    s.days.forEach((arr,di)=>{ const g=geoms[di];
-      const path=g?g.coords.map(cd=>({lat:cd[1],lng:cd[0]})):arr;
-      if(path.length<2) return;
-      x.shadowColor=DC[di%DC.length]; x.shadowBlur=22;
-      x.strokeStyle=DC[di%DC.length]; x.lineWidth=11; x.lineCap="round"; x.lineJoin="round";
-      x.beginPath(); path.forEach((p,i)=>{ const q=P(p); i?x.lineTo(q.x,q.y):x.moveTo(q.x,q.y); }); x.stroke(); });
-    x.shadowBlur=0;
-    s.days.forEach((arr,di)=>{ arr.forEach((p,i)=>{ const q=P(p);
-      x.fillStyle="#ffffff"; x.beginPath(); x.arc(q.x,q.y,12,0,7); x.fill();
-      x.fillStyle=p.type==="eat"?"#ff9f43":DC[di%DC.length]; x.beginPath(); x.arc(q.x,q.y,7,0,7); x.fill();
-      if(i===0&&di===0){ x.strokeStyle="#ffffff"; x.lineWidth=4; x.beginPath(); x.arc(q.x,q.y,20,0,7); x.stroke(); } }); });
-    x.restore();
-    /* 지도 위·아래 스크림(글자 가독) */
-    const sc1=x.createLinearGradient(0,M.y,0,M.y+180); sc1.addColorStop(0,"rgba(11,18,36,.92)"); sc1.addColorStop(1,"rgba(11,18,36,0)");
-    x.fillStyle=sc1; x.fillRect(M.x,M.y,M.w,180);
-    const sc2=x.createLinearGradient(0,M.y+M.h-220,0,M.y+M.h); sc2.addColorStop(0,"rgba(11,18,36,0)"); sc2.addColorStop(1,"rgba(11,18,36,.95)");
-    x.fillStyle=sc2; x.fillRect(M.x,M.y+M.h-220,M.w,220);
-    if(tilesOK){ x.fillStyle="rgba(255,255,255,.42)"; x.font="500 26px "+F; x.textAlign="right";
-      x.fillText("© OpenStreetMap © CARTO",W-26,M.y+M.h-22); x.textAlign="left"; }
-  } else { x.fillStyle="#8aa0bf"; x.font="500 44px "+F; x.fillText("좌표가 있는 장소가 없어요",84,M.y+300); }
-  /* 헤더 */
-  x.fillStyle="#8aa0bf"; x.font="500 40px "+F; x.fillText(s.range,84,150);
-  x.fillStyle="#ffffff"; x.font="800 96px "+F; x.fillText(s.city+" 여행",84,268);
-  /* 통계 */
-  let y=1620;
-  x.fillStyle="#ffffff"; x.font="800 160px "+F;
-  const kmTxt=(km>=10?km.toFixed(0):km.toFixed(1)); x.fillText(kmTxt,84,y);
-  const kw=x.measureText(kmTxt).width;
-  x.font="700 60px "+F; x.fillStyle="#8aa0bf"; x.fillText("km",84+kw+22,y);
-  x.font="600 52px "+F; x.fillStyle="#cdd8ea";
-  x.fillText(s.n+"곳 이동"+(s.visited?" · "+s.visited+"곳 방문":"")+(roadOK?"":" · 추정"),84,y+96);
-  if(s.rated){ x.fillStyle="#ffd166"; x.font="700 52px "+F;
-    x.fillText("★ "+s.avg.toFixed(1)+(s.best?"  ·  최고의 곳 "+s.best.name.slice(0,14):""),84,y+184); }
-  /* 푸터 */
-  const fy=H-96;
-  x.fillStyle="#5a93ff"; x.beginPath(); x.arc(108,fy-10,26,Math.PI,0); x.lineTo(134,fy+4); x.lineTo(108,fy+34); x.lineTo(82,fy+4); x.closePath(); x.fill();
-  x.fillStyle="#ffffff"; x.beginPath(); x.arc(108,fy-6,10,0,7); x.fill();
-  x.fillStyle="#8aa0bf"; x.font="600 42px "+F; x.fillText("동선이 · kmini0157.github.io/dongseoni",156,fy+8);
-  return {tilesOK, roadOK};
-}
-function openRecap(){
-  openSheet(`<h3>여행 리캡</h3>
-    <p class="muted" style="margin-bottom:10px">실제 지도 위에 전체 동선을 담은 이미지(9:16) — 스토리·피드에 바로 올릴 수 있어요.</p>
-    <canvas id="recapCv" style="width:100%;border-radius:14px;border:1px solid var(--line2);background:#0b1224"></canvas>
-    <p class="muted" id="recapStatus" style="margin-top:8px">지도 불러오는 중…</p>
-    <div class="row2" style="margin-top:6px"><button class="btn primary" onclick="shareRecap()">이미지 공유</button><button class="btn line" onclick="downloadRecap()">이미지 저장</button></div>`);
-  const cv=document.getElementById("recapCv");
-  buildRecap(cv).then(r=>{ const el=document.getElementById("recapStatus"); if(!el) return;
-    el.textContent = r.tilesOK ? (r.roadOK?"도로 경로 기준 실측 거리예요.":"지도 위 직선 경로 · 거리는 추정이에요.")
-                               : "지도를 불러오지 못해 약식으로 그렸어요. 잠시 후 다시 열어보세요.";
-  }).catch(()=>{ const el=document.getElementById("recapStatus"); if(el) el.textContent="카드 생성 실패 — 네트워크 확인 후 다시 열어주세요."; });
-}
-function recapBlob(cb){ const cv=document.getElementById("recapCv"); if(cv&&cv.toBlob) cv.toBlob(cb,"image/png"); else cb(null); }
-function shareRecap(){ recapBlob(async b=>{ if(!b){ toast("이미지 생성 실패"); return; }
-  const f=new File([b],"dongseoni-recap.png",{type:"image/png"});
-  if(navigator.canShare&&navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:"동선이 여행 리캡"}); return; }catch(e){} }
-  downloadRecap(); }); }
-function downloadRecap(){ recapBlob(b=>{ if(!b){ toast("이미지 생성 실패"); return; }
-  const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="dongseoni-recap.png"; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast("이미지가 저장됐어요"); }); }
-
 /* 표정/축하 */
 function emotionFor(cur,staying){ if(celebrating) return "heart"; if(staying&&cur&&cur.kind==="place"&&cur.place&&cur.place.type==="eat") return "drool"; if(staying&&cur&&cur.kind==="stay") return "heart"; return "happy"; }
 function refreshMascot(){ if(screen!=="home"||!document.getElementById("mascotWrap")) return; const at=nowMinutes(), steps=buildSteps(), idx=currentStepIndex(steps,at), cur=steps[idx]||steps[0];
@@ -1739,9 +1699,13 @@ function refreshMascot(){ if(screen!=="home"||!document.getElementById("mascotWr
   setHTML("mascotWrap",mascot(mood,!staying&&!!cur,emo)); set("mascotSay",mascotSay(mood,!staying&&!!cur,emo)); lastMascot=mood+(!staying?"go":"stay")+emo; }
 function celebrate(){ confetti(); flashCheck(); try{ if(navigator.vibrate) navigator.vibrate([200,120,200]); }catch(e){} celebrating=true; refreshMascot(); clearTimeout(celebTimer); celebTimer=setTimeout(()=>{ celebrating=false; refreshMascot(); },2600);
   const steps=buildSteps(), idx=currentStepIndex(steps,nowMinutes()), cur=steps[idx];
-  if(cur&&cur.kind==="place"&&cur.place){ if(!cur.place.visitedAt){ cur.place.visitedAt=Date.now(); save(); }
-    markReplanIfLate(cur.place.id,cur.arrive); if(screen==="home") applySim();   /* ±15분 어긋나면 리플랜 배너 제안 */
-    toast("도착 기록됨"); setTimeout(()=>openVisitNote(cur.place.id),1000); }   /* 컨페티 후 별점·메모 유도(기억이 생생할 때) */
+  const live=isSelToday()&&simMinutes==null;   /* 다른 날짜 보기·시간 미리보기 중엔 체크인 기록 안 함(과거·미래 오기록 방지) */
+  if(cur&&cur.kind==="place"&&cur.place&&live){
+    if(!cur.place.visitedAt){ cur.place.visitedAt=Date.now(); save();
+      markReplanIfLate(cur.place.id,cur.arrive); if(screen==="home") applySim();   /* 첫 체크인에서만 ±15분 리플랜 제안(재탭 시 거짓 지연 방지) */
+      toast("도착 기록됨"); setTimeout(()=>openVisitNote(cur.place.id),1000); }   /* 컨페티 후 별점·메모 유도(기억이 생생할 때) */
+    else { toast("이미 도착 기록된 곳이에요"); setTimeout(()=>openVisitNote(cur.place.id),800); }
+  }
   else toast("동선이가 반겨요!"); }
 function confetti(){ const wrap=document.createElement("div"); wrap.className="confetti"; const cols=["#5a93ff","#3fe39a","#ffd166","#ff7a7a","#a78bfa","#ff9f43"];
   for(let i=0;i<48;i++){ const p=document.createElement("i"); p.style.left=R(0,100).toFixed(1)+"%"; p.style.background=cols[i%cols.length]; p.style.width=(R(6,11)|0)+"px"; p.style.height=(R(8,15)|0)+"px"; if(i%3===0)p.style.borderRadius="50%"; p.style.animationDuration=R(1.6,2.8).toFixed(2)+"s"; p.style.animationDelay=R(0,.35).toFixed(2)+"s"; p.style.setProperty("--dx",(R(-70,70)|0)+"px"); wrap.appendChild(p); }
@@ -1779,7 +1743,13 @@ function geoStart(silent){ if(geoWatch!=null||!navigator.geolocation) return;
   localStorage.setItem("dongseoni_geo","1"); if(!silent) toast("도착 자동 감지 켜짐 — 화면을 켜둔 채 유지해 드려요"); }
 function geoStop(){ if(geoWatch!=null){ try{ navigator.geolocation.clearWatch(geoWatch); }catch(e){} geoWatch=null; } wlRelease(); }
 function toggleGeo(){ if(geoWatch!=null){ geoStop(); localStorage.removeItem("dongseoni_geo"); toast("도착 자동 감지 꺼짐"); } else geoStart(false); if(screen==="home") render(); }
-document.addEventListener("visibilitychange",()=>{ if(document.hidden){ if(geoWatch!=null){ geoStop(); geoPaused=true; } } else { if(geoPaused){ geoPaused=false; geoStart(true); } if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); } });   /* 숨김 시 배터리 절약 · 복귀 시 시계 즉시 보정(인터벌 백그라운드 스킵 보완) */
+let LASTDAY=todayStr();
+function dayRollCheck(){ const t=todayStr(); if(t===LASTDAY||!TRIP) return; LASTDAY=t;   /* 자정 넘김·다음날 복귀 감지 — "아침에 열면 어제 Day가 떠 있는" 문제 해결 */
+  const off=Math.round((new Date(t+"T00:00:00")-new Date(TRIP.startDate+"T00:00:00"))/86400000);
+  if(off>=0&&off<daysCount()&&curDay!==off){ curDay=off; simMinutes=null; REPLAN=null; lastSkyMood=null; render(); toast("오늘 일정(Day "+(off+1)+")으로 이동했어요"); } }
+document.addEventListener("visibilitychange",()=>{ if(document.hidden){ if(geoWatch!=null){ geoStop(); geoPaused=true; } } else { if(geoPaused){ geoPaused=false; geoStart(true); } dayRollCheck(); if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); } });   /* 숨김 시 배터리 절약 · 복귀 시 시계·Day 즉시 보정 */
+window.addEventListener("online",()=>{ NETOFF=false; toast("온라인 — 최신 정보로 갱신해요"); if(screen==="home") applySim(); schedulePrefetch(); });
+window.addEventListener("offline",()=>{ NETOFF=true; toast("오프라인 — 저장된 정보로 계속 보여드려요"); if(screen==="home") applySim(); });
 try{ if(localStorage.getItem("dongseoni_geo")==="1"&&navigator.permissions&&navigator.geolocation){ navigator.permissions.query({name:"geolocation"}).then(st=>{ if(st.state==="granted"){ geoStart(true); if(screen==="home") render(); } }).catch(()=>{}); } }catch(e){}   /* 이전에 켰고 권한 있으면 조용히 재개 */
 function assistantTip(){ const day=TRIP.days[curDay], wishN=(TRIP.wish||[]).length;
   if(TRIP.days.every(d=>d.places.length===0)){
@@ -1813,7 +1783,9 @@ let STARS={}; try{ STARS=JSON.parse(localStorage.getItem("dongseoni_stars")||"{}
 let jinaFails=0, jinaDead=false, jinaDeadAt=0;
 function jinaTrip(){ jinaDead=true; jinaDeadAt=Date.now(); }
 function jinaBlocked(){ if(jinaDead&&Date.now()-jinaDeadAt>90000){ jinaDead=false; jinaFails=0; } return jinaDead; }   /* 90초 쿨다운 후 자동 복구(세션 영구차단 방지) */
-function saveStars(){ try{ localStorage.setItem("dongseoni_stars",JSON.stringify(STARS)); }catch(e){} }
+function saveStars(){ try{ const ks=Object.keys(STARS);   /* 무한 성장 방지 — 오래된 것부터 정리해 250개 유지 */
+  if(ks.length>250) ks.sort((a,b)=>(STARS[a].t||0)-(STARS[b].t||0)).slice(0,ks.length-250).forEach(k=>delete STARS[k]);
+  localStorage.setItem("dongseoni_stars",JSON.stringify(STARS)); }catch(e){} }
 function sortRec(view){
   if(recSortMode==="dist")   return [...view].sort((a,b)=>(a.dist||9e9)-(b.dist||9e9));
   if(recSortMode==="star")   return [...view].sort((a,b)=>((b.rating||0)-(a.rating||0))||((b.reviews||0)-(a.reviews||0))||((b.score||0)-(a.score||0)));
@@ -1830,6 +1802,7 @@ function fetchStar(id){
   return fetch("https://r.jina.ai/https://place.map.kakao.com/"+rid,{signal:ac.signal,headers:{"X-Timeout":"12"}})   /* X-Timeout 없으면 Jina가 페이지 완성 전에 반환해 빈 껍데기만 옴(실측 확인) */
     .then(r=>r.ok?r.text():Promise.reject(r.status))
     .then(txt=>{ let rating=null,reviews=null;
+      if(txt.length<1500||txt.indexOf("Warning: Target URL returned error")>=0||txt.indexOf("데이터를 불러올 수 없습니다")>=0){ const err=new Error("upstream"); err.name="UpstreamError"; throw err; }   /* Jina가 상류 오류·미완성 렌더를 200으로 감쌈 — null을 7일 캐시하지 말고 실패 처리(재시도 가능) */
       const hi=txt.indexOf("전체 후기/평점");   /* 이 장소 자체의 집계 별점 헤더 — 상세페이지엔 이 장소 링크가 수십 번 반복돼(자기참조 앵커) id 인접 탐색이 무의미해짐. "이 지역 친구공유 랭킹"(다른 가게 별점 나열)보다 앞서 나오는 이 헤더로 자기 값만 특정 */
       const win=hi>=0?txt.slice(hi,hi+220):"";   /* 헤더가 없으면(점주가 후기 비공개 설정) 빈 윈도우 → rating/reviews 둘 다 null로 정확히 처리 */
       const rm=win.match(/별점\s*([0-5](?:\.[0-9])?)/)||win.match(/([0-5]\.[0-9])\s*점/)||win.match(/★\s*([0-5](?:\.[0-9])?)/);
@@ -1837,16 +1810,21 @@ function fetchStar(id){
       const vm=win.match(/후기\s*([\d,]+)\s*개?/)||win.match(/리뷰\s*([\d,]+)/);
       if(vm) reviews=parseInt(vm[1].replace(/,/g,""),10);
       jinaFails=0; const o={rating,reviews,t:Date.now()}; STARS[rid]=o; saveStars(); return o; })
-    .catch(e=>{ if(!(e&&e.name==="AbortError")&&++jinaFails>=6) jinaTrip(); return c||null; })   /* 타임아웃/취소는 영구 카운터 제외 + 임계값 4→6(조기 전면차단 방지) */
+    .catch(e=>{ if(!(e&&(e.name==="AbortError"||e.name==="UpstreamError"))&&++jinaFails>=6) jinaTrip(); return c||null; })   /* 타임아웃/취소/상류오류는 브레이커 카운터 제외 */
     .finally(()=>clearTimeout(to)); }
 function enrichStars(list){
   if(!ADMIN||!list||list._starTried) return; list._starTried=true;
   const targets=list.filter(p=>String(p.url||"").includes("place.map.kakao.com"))
-    .sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,20);
+    .sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,12);   /* 20→12곳: 무키 r.jina.ai 분당 한도(429)로 20곳 일괄 요청 시 소수만 로드되던 실측 문제 */
   if(!targets.length||jinaBlocked()){ list._starDone=true; return; }
-  let i=0; const worker=async()=>{ while(i<targets.length){ const p=targets[i++]; try{ const s=await fetchStar(p.id); if(s){ if(s.rating!=null) p.rating=s.rating; if(s.reviews!=null) p.reviews=s.reviews; } }catch(e){} } };   /* 성능: 20병렬→동시성 4(r.jina.ai 429·모바일 소켓 부담 완화) */
-  Promise.all(Array.from({length:Math.min(4,targets.length)},worker))
-    .then(()=>{ list._starDone=true; if(RLIST&&RLIST.list===list) rerenderRec(); }); }
+  let i=0, lastPaint=0;
+  const paint=fin=>{ const now=Date.now(); if(!fin&&now-lastPaint<2000) return; lastPaint=now; if(RLIST&&RLIST.list===list) rerenderRec(); };   /* 도착하는 대로 점진 표시(2초 스로틀) — 끝까지 기다리지 않음 */
+  const worker=async()=>{ while(i<targets.length){ const p=targets[i++]; try{
+    let s=await fetchStar(p.id);
+    if(!s&&!jinaBlocked()){ await new Promise(r=>setTimeout(r,2500)); s=await fetchStar(p.id); }   /* 순간 429·타임아웃 1회 재시도(성공 파싱은 STARS 캐시라 중복요청 아님) */
+    if(s){ if(s.rating!=null) p.rating=s.rating; if(s.reviews!=null) p.reviews=s.reviews; paint(false); } }catch(e){} } };
+  Promise.all(Array.from({length:Math.min(2,targets.length)},worker))   /* 동시성 4→2 — 분당 한도 안에서 안정적으로 전부 로드 */
+    .then(()=>{ list._starDone=true; paint(true); }); }
 function kakaoRec(region,kind){
   const c=areaCoords(region); if(!window.kakao) return Promise.resolve({list:[],err:"load"});
   const ps=new kakao.maps.services.Places(), loc=new kakao.maps.LatLng(c.lat,c.lng), OK=kakao.maps.services.Status.OK, ERR=kakao.maps.services.Status.ERROR;
@@ -1912,6 +1890,10 @@ function openSettings(){ openSheet(`<h3>API 연동 (선택)</h3>
     ? `<div class="field" style="margin-top:2px"><label>관리자 모드 <span style="color:var(--accent)">ON ⭐</span> <span class="muted">(맛집·놀거리 별점·리뷰순 정렬)</span></label><button class="btn line" style="margin-top:2px" onclick="adminOff()">관리자 모드 끄기</button></div>`
     : `<div class="field" style="margin-top:2px"><label>관리자 <span class="muted">(개인용 — 별점·리뷰수 정렬 잠금 해제)</span></label><input class="input" id="kAdmin" type="password" placeholder="관리자 비밀번호" value="" autocomplete="off"></div>`}
   <button class="btn primary" onclick="saveKeys()">저장하고 켜기</button>
+  <div class="field" style="margin-top:18px"><label>백업 <span class="muted">(여행 데이터는 이 기기에만 저장돼요 — 기기 변경·분실 대비)</span></label>
+    <div class="row2"><button class="btn line" style="height:42px" onclick="backupTrips()">전체 백업 내려받기</button>
+      <button class="btn line" style="height:42px" onclick="document.getElementById('bkFile').click()">백업 불러오기</button></div>
+    <input type="file" id="bkFile" accept=".json,application/json" style="display:none" onchange="if(this.files[0])restoreTrips(this.files[0]);this.value=''"></div>
   <p class="muted" style="margin-top:12px">현재: 맛집검색 ${KAKAO_KEY?"연동됨":"큐레이션"} · 대중교통 ${ODSAY_KEY?"연동됨":"보정추정"} · 놀거리 ${TOUR_KEY?"관광공사":"Kakao"} · 버전 ${APP_VER}${ADMIN?" · 관리자 ON":""}</p>`); }
 function adminOff(){ ADMIN=false; localStorage.removeItem("dongseoni_admin"); if(recSortMode==="star"||recSortMode==="review") recSortMode="pop"; recRev100=false;
   closeSheet(); toast("관리자 모드 꺼짐"); if(lastRec&&document.getElementById("recList")) showRec(lastRec.r,lastRec.k); }
@@ -1921,14 +1903,15 @@ let REVTXT={};   /* 세션 한정 캐시 — 영속화 금지 */
 function revParse(t){
   const out=[]; const seen={}; let m;
   const re=/별점\s*([0-5](?:\.\d)?)\s*(20\d{2}\.\d{1,2}\.\d{1,2})\.?\s*\[([^\]]{2,700})\]\(/g;   /* 날짜 필수 = 개별 후기만(인근 랭킹 "별점 4.1 후기 981"엔 날짜 없음 → 배제) */
-  while((m=re.exec(t)) && out.length<12){
+  while((m=re.exec(t)) && out.length<24){
     const txt=m[3].trim(); if(seen[txt]) continue; seen[txt]=1;
+    if(/그룹에\s*저장되었습니다$|^더보기$|^접기$|^공유$|^신고$|^사진\s*목록/.test(txt)) continue;   /* 본문 없는(사진·태그만) 후기에서 다음 링크가 카카오 UI 문구인 경우 배제(실측) */
     const back=t.slice(Math.max(0,m.index-520), m.index);   /* 직전 작성자 프로필 블록에서 이력 추출 */
     const hg=[...back.matchAll(/후기\s*(\d{1,5})\b/g)], av=[...back.matchAll(/별점평균\s*([0-5](?:\.\d)?)/g)];
     out.push({kind:"user",rating:m[1],date:m[2],text:txt,rvN:hg.length?+hg[hg.length-1][1]:null,rvAvg:av.length?av[av.length-1][1]:null});
   }
   const rb=/\[\*\*블로그 타이틀\s*([^*\]]{2,90})\*\*\s*([^\]]{10,1500}?)\s*블로그명\s*[^\]]{0,60}?작성일자\s*(20\d{2}\.\d{1,2}\.\d{1,2})/g;
-  while((m=rb.exec(t)) && out.length<16){
+  while((m=rb.exec(t)) && out.length<30){
     const txt=(m[1].trim()+" — "+m[2].trim()).slice(0,700); if(seen[txt]) continue; seen[txt]=1;
     out.push({kind:"blog",rating:null,date:m[3],text:txt,rvN:null,rvAvg:null});
   }
@@ -1940,8 +1923,37 @@ function revScrape(id){
   const ac=new AbortController(); const to=setTimeout(()=>ac.abort(),20000);   /* 카카오맵 상세페이지 렌더가 무거워져(Shadow DOM) 8~10초 걸릴 수 있음 — X-Timeout(12s)보다 여유있게 */
   return fetch("https://r.jina.ai/https://place.map.kakao.com/"+rid,{signal:ac.signal,headers:{"X-Timeout":"12"}})   /* X-Timeout 없으면 Jina가 페이지 완성 전에 반환해 후기가 하나도 안 잡힘(실측 확인) */
     .then(r=>{ clearTimeout(to); if(!r.ok) throw 0; return r.text(); })
-    .then(t=>{ jinaFails=0; const list=revParse(t); REVTXT[rid]=list; return list; })
-    .catch(e=>{ clearTimeout(to); if(!(e&&e.name==="AbortError")&&++jinaFails>=6) jinaTrip(); throw e; }); }   /* 타임아웃(20s)은 카운트 제외 — 느린 모바일이 별점 브레이커를 오염시키던 것 방지 */
+    .then(t=>{ if(t.length<1500||t.indexOf("Warning: Target URL returned error")>=0||t.indexOf("데이터를 불러올 수 없습니다")>=0){ const err=new Error("upstream"); err.name="UpstreamError"; throw err; }   /* 미완성 렌더·상류 오류 200 — 세션 캐시에 빈 결과 고착 방지 */
+      jinaFails=0; const list=revParse(t); REVTXT[rid]=list; return list; })
+    .catch(e=>{ clearTimeout(to); if(!(e&&(e.name==="AbortError"||e.name==="UpstreamError"))&&++jinaFails>=6) jinaTrip(); throw e; }); }   /* 타임아웃(20s)·상류오류는 브레이커 카운트 제외 */
+/* ── 모바일 후기 탭(m/{id}#comment) — 본문은 없지만 별점·날짜·태그가 ~20개 노출(기본 페이지의 6배, 실측) → '별로인 집인지' 사실 통계용 ── */
+const REVSTAT={};   /* 세션 한정 — 영속화 금지(리뷰 정책 동일) */
+function revStats(id){
+  const rid=String(id||"").replace(/\D/g,""); if(!rid) return Promise.reject("noid");
+  if(REVSTAT[rid]) return Promise.resolve(REVSTAT[rid]);
+  if(jinaBlocked()) return Promise.reject("dead");
+  const ac=new AbortController(); const to=setTimeout(()=>ac.abort(),22000);
+  return fetch("https://r.jina.ai/https://place.map.kakao.com/m/"+rid+"%23comment",{signal:ac.signal,headers:{"X-Timeout":"14"}})
+    .then(r=>{ clearTimeout(to); if(!r.ok) throw 0; return r.text(); })
+    .then(t=>{ if(t.length<1200||t.indexOf("Warning: Target URL returned error")>=0||t.indexOf("데이터를 불러올 수 없습니다")>=0){ const err=new Error("upstream"); err.name="UpstreamError"; throw err; }
+      jinaFails=0;
+      const rs=[]; let m; const re=/별점\s*([0-5](?:\.\d)?)\s*(20\d{2}\.\d{1,2}\.\d{1,2})/g;
+      while((m=re.exec(t))&&rs.length<40) rs.push({r:+m[1],d:m[2]});
+      const tags={}; const tg=/icon_review_[a-z_]+\.png\)\s*([가-힣]{1,6})/g;   /* 사용자 선택 태그(맛·가성비·친절…) 카운트 */
+      while((m=tg.exec(t))) tags[m[1]]=(tags[m[1]]||0)+1;
+      const n=rs.length, avg=n?rs.reduce((s,x)=>s+x.r,0)/n:0;
+      const dist={}; rs.forEach(x=>{ const b=Math.round(x.r); dist[b]=(dist[b]||0)+1; });
+      const st={n,avg,dist,tags,latest:rs.length?rs[0].d:null};
+      REVSTAT[rid]=st; return st; })
+    .catch(e=>{ clearTimeout(to); if(!(e&&(e.name==="AbortError"||e.name==="UpstreamError"))&&++jinaFails>=6) jinaTrip(); throw e; }); }
+function statVerdict(st){ if(!st||!st.n||st.n<3) return null;   /* 표본 3개 미만이면 기조 판단 안 함(정직) */
+  if(st.avg>=4.3) return {k:"ok",t:"😋 호평 위주"};
+  if(st.avg<3.4) return {k:"danger",t:"⚠️ 아쉽다는 후기가 많아요"};
+  return {k:"warn",t:"🤔 호불호가 갈려요"}; }
+function statLine(st){ if(!st||!st.n) return "";
+  const d=Object.keys(st.dist).sort((a,b)=>b-a).map(k=>k+"점 "+st.dist[k]).join(" · ");
+  const tg=Object.entries(st.tags||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]+" "+e[1]).join(" · ");
+  return `노출 후기 ${st.n}개 · 평균 ★${st.avg.toFixed(1)} (${d})${tg?` · ${tg}`:""}${st.latest?` · 최근 ${st.latest}`:""}`; }
 function llmTone(parts){
   const listTxt=parts.map((r,i)=>`[${i}] ${r}`).join("\n\n");
   const prompt=`너는 리뷰의 '표현 톤'만 관찰하는 도우미다. 진짜/가짜, 알바 여부는 절대 판정하지 마라(텍스트만으론 알 수 없다).
@@ -2050,44 +2062,55 @@ function tourFoodInfo(name,lat,lng){   /* 공식 대표메뉴·영업정보 — 
   }).then(v=>{ FOODCACHE[ck]=v; return v; }).catch(()=>{ FOODCACHE[ck]=null; return null; });
 }
 function menuStop(w){ return /^(우리|저희|사장|사장님|이모|이모님|아주머니|어머니|직원|가게|여기|여기는|이집|이곳|거기|정말|진짜|완전|너무|그냥|다음|이번|가격|사람|분위기|주차|웨이팅|대기|메뉴|음식|반찬|서비스|사진|방문|재방문|가성비|맛집|기본|추가|계산|포장|예약|현금|카드|점심|저녁|아침|가족|친구|연인|아이|둘이|혼자|모두|전부|양이|양도|양은|국물|비주얼|다들|여긴|저는|제가|우린|내돈내산|후기|리뷰|시간|근처|위치|입구|근데|그런데|그래서|아니면|그리고|결국|드디어|이거|저거|그거|이게|저게|그게|같이|정도|완전히|안해|안돼|안된|못해|못먹|없음|없어|없다|하나같|한끼|한끼씩|괜히|제일|원조가)$/.test(w); }
-function looksLikeMenuNoun(w){   /* 음식명은 보통 명사형으로 끝남 — 활용어미로 끝나면 동사/형용사 조각일 확률 높아 배제 */
-  return !/(습니다|읍니다|았다|었다|였다|한다|니다|어서|아서|여서|으며|이기|이며|라서|하고|려고|는데|해요|어요|았어요|었어요|였어요|네요|어용|드라|더라)$/.test(w);
-}
 const MENU_PARTICLE=/(을|를|은|는|이|가|도|랑|하고|과|와|에|의|만|까지|부터|이랑|에서|으로|로)$/;
-const MENU_CUE=/([가-힣A-Za-z]{2,12})(?:을|를|은|는|이|가|도)?\s*(먹|시켜|시켰|주문|존맛|국룰|필수|맛있)/g;   /* '추천/강추/최고'는 가게 자체를 가리키는 경우가 흔해 제외 — 순수 취식 동사만 앵커로 */
-function extractMenus(texts,ownName){   /* 무키 폴백: '먹었다/시켰다/주문/맛있다' 등 취식 동사에 직접 인접해 최소 1번 등장한 단어만 후보로(가게이름·지역명·"내돈내산"류 상투어·활용형 조각 배제) → 문서빈도(df)로 언급 횟수 집계·정렬 */
+const MENU_CUE=/([가-힣A-Za-z]{2,14})(?:을|를|은|는|이|가|도)?\s*(먹|시켜|시켰|주문|존맛|국룰|필수|맛있)/g;   /* 취식 동사 인접 — 보조 가중치로만 사용(지명 "부산에 맛있는"이 통과하는 오탐 실측 → 자격 조건에서 제외) */
+const MENU_LEX=/텐동|텐푸라|튀김|덮밥|돈부리|규동|우동|라멘|라면|소바|메밀|냉면|밀면|국수|칼국수|수제비|국밥|해장국|순댓국|순대|곰탕|설렁탕|갈비탕|매운탕|맑은탕|샤브|전골|찌개|된장|비빔밥|볶음밥|김밥|주먹밥|초밥|스시|사시미|오마카세|회덮밥|물회|육회|육사시미|돈까스|돈가스|가츠|카츠|정식|세트|코스|피자|파스타|리조또|스테이크|버거|샌드위치|토스트|브런치|와플|팬케이크|케이크|빙수|마카롱|크로플|도넛|베이글|스콘|라떼|아메리카노|밀크티|스무디|에이드|아인슈페너|콜드브루|플랫화이트|카푸치노|아포가토|티라미수|푸딩|젤라또|쿠키|휘낭시에|마들렌|소금빵|크루아상|파니니|츄러스|갈비|삼겹|목살|항정|막창|곱창|대창|불고기|제육|보쌈|족발|수육|편육|치킨|닭갈비|찜닭|닭발|닭강정|삼계탕|백숙|백반|쌈밥|우럭|광어|방어|연어|참치|고등어|갈치|장어|곰장어|꼼장어|아나고|전복|문어|낙지|쭈꾸미|오징어|한치|새우|에비|대게|킹크랩|랍스터|가리비|멍게|성게|해물|아구|복국|대구탕|알탕|추어탕|만두|딤섬|마라탕|마라샹궈|양꼬치|짜장|짬뽕|탕수육|깐풍|유린기|쌀국수|분짜|팟타이|카레|커리|케밥|타코|부리또|떡볶이|어묵|호떡|붕어빵|파전|빈대떡|보리밥|샐러드|포케|스프|수프|리코타|누룽지|화로|숯불|양념|간장|소금구이|구이|볶음|조림|무침|말이|쌈|비빔|한상|한판/;
+function extractMenus(texts,ownName,officialMenu){   /* 무키 폴백: ①공식 대표메뉴(TourAPI) 대조 ②음식 형태소 사전 매칭 — 지명·감상어("부산/서울/자주")가 끼던 큐 방식을 사전 기반으로 교체. 언급 후기 수로 집계 */
   const ownCore=(ownName||"").replace(/\s+/g,"");
-  const df={},cue={},sample={};
-  (texts||[]).forEach(t=>{ if(!t) return; const s=String(t), seen={};
-    (s.match(/[가-힣A-Za-z]{2,12}/g)||[]).forEach(raw=>{ const w=raw.replace(MENU_PARTICLE,"");
-      if(w.length<2||menuStop(w)) return; if(!seen[w]){ seen[w]=1; df[w]=(df[w]||0)+1; } });
-    MENU_CUE.lastIndex=0; let m; const seenCue={};
-    while((m=MENU_CUE.exec(s))){ const w=m[1].replace(MENU_PARTICLE,"");
-      if(w.length<2||menuStop(w)||!looksLikeMenuNoun(w)) continue;
-      if(ownCore&&ownCore.length>=2&&(ownCore.includes(w)||w.includes(ownCore))) continue;   /* 가게 이름 자체("개미식당 추천/맛있어요") 배제 */
-      if(!seenCue[w]){ seenCue[w]=1; cue[w]=(cue[w]||0)+1; }
-      if(!sample[w]) sample[w]=s.slice(Math.max(0,m.index-4),m.index+30).replace(/\s+/g," ").trim(); } });
-  return Object.keys(cue)                                   /* 취식 동사 인접 등장이 최소 1회는 있어야 후보 자격(핵심 필터) */
-    .map(w=>({name:w,count:Math.max(df[w]||0,cue[w]),why:sample[w]||""}))
-    .sort((a,b)=>b.count-a.count)
-    .slice(0,8);
+  const T=(texts||[]).map(t=>String(t||"")).filter(Boolean); if(!T.length&&!officialMenu) return [];
+  const strip=w=>w.replace(MENU_PARTICLE,"").replace(MENU_PARTICLE,"");   /* 조사 2겹("중에서도")까지 제거 */
+  const lexG=new RegExp(MENU_LEX.source,"g");
+  const lexTrim=w=>{ lexG.lastIndex=0; let m,end=0; while((m=lexG.exec(w))) end=m.index+m[0].length; return end?w.slice(0,end):w; };   /* 사전 형태소 경계에서 꼬리 절단: "따로국밥시켜"→"따로국밥", "국밥집"→"국밥"(활용형·접미 노이즈 제거) */
+  const badBasic=w=>w.length<2||w.length>14||menuStop(w);
+  const bad=w=>badBasic(w)||w===ownCore||(ownCore.length>=2&&w.includes(ownCore));   /* 상호 필터는 '후보가 상호를 포함/일치'만 — 반대방향(상호가 메뉴명을 포함: "수변최고돼지국밥"의 돼지국밥)은 정당한 메뉴라 배제하지 않음 */
+  const names={};
+  String(officialMenu||"").split(/[\/,·＋+]/).map(s=>String(s).replace(/\(.*?\)/g,"").replace(/\s*등$/,"").trim()).forEach(s=>{ if(!badBasic(s)&&/[가-힣]/.test(s)) names[s]={off:true,cue:0}; });   /* 공식 대표메뉴는 TourAPI가 검증한 것 — 상호 겹침 검사 면제("에비텐동 / 토리텐동 등" 분해) */
+  T.forEach(t=>{ (t.match(/[가-힣A-Za-z]{2,14}/g)||[]).forEach(raw=>{ let w=strip(raw);
+    if(/(이|하|자|보|저|나|니|거|다|것|누구|사람)라면$/.test(w)) return;   /* 조건형 어미("부산사람이라면") — '라면' 사전 오탐 차단 */
+    if(!MENU_LEX.test(w)) return; w=lexTrim(w);
+    if(bad(w)) return; if(!names[w]) names[w]={off:false,cue:0}; }); });
+  T.forEach(t=>{ MENU_CUE.lastIndex=0; let m; while((m=MENU_CUE.exec(t))){ const w=strip(m[1]); if(names[w]) names[w].cue++; } });
+  const out=Object.keys(names).map(w=>{ let count=0,why="";
+    T.forEach(t=>{ const idx=t.indexOf(w); if(idx>=0){ count++; if(!why) why=t.slice(Math.max(0,idx-6),idx+w.length+26).replace(/\s+/g," ").trim(); } });
+    return {name:w,count,cue:names[w].cue,off:names[w].off,why}; }).filter(x=>x.count>0||x.off);
+  out.sort((a,b)=>b.name.length-a.name.length);   /* 포함관계 정리: 긴 이름(구체 메뉴)이 짧은 일반어의 언급을 다 설명하면 짧은 쪽 제거 */
+  const kept=[]; out.forEach(x=>{ if(!kept.find(k=>k.name.includes(x.name)&&k.count>=x.count)) kept.push(x); });
+  const minC=kept.length>6?2:1;   /* 후보가 많으면 1회짜리 조각 노이즈 컷 */
+  return kept.filter(x=>x.count>=minC||x.off)
+    .sort((a,b)=>(b.count*2+b.cue+(b.off?1.5:0))-(a.count*2+a.cue+(a.off?1.5:0)))
+    .slice(0,8).map(x=>({name:x.name,count:x.count,why:x.why,off:x.off}));
 }
-function llmMenus(texts){
-  const listTxt=(texts||[]).slice(0,20).map((r,i)=>`[${i}] ${String(r).slice(0,400)}`).join("\n\n");
-  const prompt=`아래는 한 음식점의 방문자 후기·블로그 발췌다. 실제 언급된 '메뉴(음식 이름)'만 뽑아 많이 추천·호평된 순으로 정렬하라.
-규칙: 실제 메뉴명만(일반명사 '음식/반찬/서비스/분위기/가격' 및 상호·지점명 제외). 각 메뉴에 후기 근거를 한 줄로. 근거 없으면 제외. 최대 6개. 후기에 있는 내용만, 과장 금지.
-JSON으로만: {"menus":[{"name":"메뉴명","mentions":정수,"why":"후기 근거 한 줄"}]}
+function llmPlaceReport(texts,officialMenu){   /* Gemini 종합: 총평 한 줄·메뉴·팁·아쉬운 점 — 후기에 있는 내용만, 단정 금지 */
+  const listTxt=(texts||[]).slice(0,20).map((r,i)=>`[${i}] ${String(r).slice(0,450)}`).join("\n\n");
+  const prompt=`아래는 한 음식점의 방문자 후기·블로그 발췌다. 후기에 실제로 있는 내용만으로 JSON을 만들어라. 과장·추측 금지, 없는 항목은 비워라.
+- summary: 후기 전반의 분위기 한 문장. '별로다/최고다' 같은 단정 대신 후기 표현을 요약(예: "튀김이 바삭하다는 호평이 많고 웨이팅 언급이 잦다").
+- menus: 언급된 실제 메뉴명만, 많이 호평된 순 최대 6개. 일반명사(음식·반찬·서비스), 지명(부산·서울 등), 상호·지점명 제외.${officialMenu?` 공식 대표메뉴 힌트: ${String(officialMenu).slice(0,100)} (후기 언급 위주, 공식 명칭에 맞춰 표기)`:""}
+- tips: 후기 속 실용 정보(웨이팅·주차·예약·좋은 시간대·주문 요령·현금 여부 등) 최대 5개, 각 한 줄.
+- cautions: 후기 속 불만·아쉬움 최대 3개. 없으면 빈 배열 — 억지로 만들지 마라.
+JSON만: {"summary":"","menus":[{"name":"","mentions":0,"why":""}],"tips":[],"cautions":[]}
 후기:
 ${listTxt}`;
   const call=m=>Promise.race([
     fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0,responseMimeType:"application/json"}})}),
-    new Promise((_,x)=>setTimeout(()=>x(new Error("timeout")),15000))
+    new Promise((_,x)=>setTimeout(()=>x(new Error("timeout")),18000))
   ]).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
   return call("gemini-flash-lite-latest").catch(()=>call("gemini-2.5-flash")).then(j=>{
     const raw=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts[0].text;
     let o=null; try{ o=JSON.parse(raw); }catch(e){}
-    const arr=(o&&Array.isArray(o.menus))?o.menus:null; if(!arr) throw new Error("parse");
-    return arr.slice(0,6).map(x=>({name:String(x.name||"").slice(0,40),count:(+x.mentions||null),why:String(x.why||"").slice(0,120)})).filter(x=>x.name); });
+    if(!o||typeof o!=="object") throw new Error("parse");
+    const menus=(Array.isArray(o.menus)?o.menus:[]).slice(0,6).map(x=>({name:String(x.name||"").slice(0,40),count:(+x.mentions||null),why:String(x.why||"").slice(0,120)})).filter(x=>x.name);
+    const arr=v=>(Array.isArray(v)?v:[]).map(s=>String(s||"").trim().slice(0,90)).filter(Boolean);
+    return { summary:String(o.summary||"").slice(0,150), menus, tips:arr(o.tips).slice(0,5), cautions:arr(o.cautions).slice(0,3) }; });
 }
 let MENUCTX=null;   /* {name,lat,lng,id(kakao),pid(내 일정 장소 id),official} */
 function openMenuPickPlace(pid){ const p=findPlace(pid); if(!p) return; openMenuPick(p.name,p.lat,p.lng,"",pid); }
@@ -2096,18 +2119,18 @@ function openMenuPick(name,lat,lng,kakaoId,pid){
   openSheet(`<h3>🍜 ${escapeHtml(name)} — 뭐 먹지?</h3>
     <p class="muted" style="margin-bottom:10px">이 집에서 뭘 시킬지 골라봐요. ${TOUR_KEY?"관광공사 공식 대표메뉴":"관광공사 키를 넣으면 공식 대표메뉴도 자동으로"} + 후기 속 인기 메뉴.</p>
     <div id="mpOfficial"><p class="muted">${TOUR_KEY?"공식 대표메뉴 확인 중…":""}</p></div>
-    <div class="sec-title" style="margin-top:16px">후기 속 인기 메뉴</div>
-    <p class="muted" style="margin:0 0 8px;font-size:12px">카카오맵 장소 페이지에 공개된 후기를 읽어 <b style="color:var(--tx2)">많이 언급된 메뉴</b>를 세어봐요${GEMINI_KEY?" · Gemini로 근거까지":""}. 판정이 아니라 언급 빈도 참고용 · 원문은 저장하지 않아요.</p>
-    <button class="btn line" onclick="mpScanReviews()">🔎 후기에서 메뉴 찾기</button>
+    <div class="sec-title" style="margin-top:16px">후기 종합</div>
+    <p class="muted" style="margin:0 0 8px;font-size:12px">카카오맵에 공개된 <b style="color:var(--tx2)">후기 본문 + 별점 목록(~20개)</b>을 읽어 ${GEMINI_KEY?"Gemini가 <b style='color:var(--tx2)'>총평·메뉴·팁·아쉬운 점</b>을 정리해요":"<b style='color:var(--tx2)'>별점 분포와 인기 메뉴</b>를 세어봐요"}. 판정이 아니라 후기 요약 참고용 · 원문은 저장하지 않아요.</p>
+    <button class="btn line" onclick="mpScanReviews()">${GEMINI_KEY?"🔎 후기 읽고 종합 분석 (총평·메뉴·팁)":"🔎 후기에서 메뉴·별점 읽기"}</button>
     <div id="mpReviews" style="margin-top:10px"></div>
     <details class="setbox" style="margin-top:14px"><summary>후기를 직접 붙여넣어 찾기</summary>
       <div class="field" style="margin-top:8px"><textarea class="input" id="mpText" rows="5" placeholder="카카오·네이버 후기를 복사해 붙여넣으세요 (여러 개면 빈 줄로 구분)" style="resize:vertical"></textarea></div>
       <button class="btn line" onclick="mpPasteMenus()">붙여넣은 글에서 메뉴 찾기</button></details>`);
   mpLoadOfficial();
 }
-function mpLoadOfficial(){ if(!MENUCTX) return;
+function mpLoadOfficial(){ if(!MENUCTX) return; const my=MENUCTX;   /* 세대 토큰 — 다른 가게 시트로 바뀐 뒤 늦게 온 응답은 폐기(교차 오염·오저장 방지) */
   if(!TOUR_KEY){ setHTML("mpOfficial",`<p class="muted" style="font-size:13px">관광공사(TourAPI) 키가 있으면 공식 <b style="color:var(--tx2)">대표 메뉴·영업시간</b>이 자동으로 떠요 — 🧳 여행 탭 → 🔌 API 연동.</p>`); return; }
-  tourFoodInfo(MENUCTX.name,MENUCTX.lat,MENUCTX.lng).then(f=>{ if(!document.getElementById("mpOfficial")||!MENUCTX) return;
+  tourFoodInfo(MENUCTX.name,MENUCTX.lat,MENUCTX.lng).then(f=>{ if(MENUCTX!==my||!document.getElementById("mpOfficial")) return;
     if(!f||!(f.menu||f.open||f.rest)){ setHTML("mpOfficial",`<p class="muted" style="font-size:13px">이 식당의 공식 대표메뉴는 관광공사 DB에 아직 없어요. 아래 후기로 찾아보세요.</p>`); return; }
     MENUCTX.official=f;
     const row=(lab,v)=>v?`<div style="margin:5px 0"><span class="muted" style="font-size:12px">${lab}</span><div style="font-size:14px;line-height:1.55">${escapeHtml(v)}</div></div>`:"";
@@ -2119,31 +2142,48 @@ function mpLoadOfficial(){ if(!MENUCTX) return;
 }
 function mpSaveOfficial(){ const f=MENUCTX&&MENUCTX.official; if(!f||!MENUCTX.pid) return; const p=findPlace(MENUCTX.pid); if(!p){ toast("장소를 찾지 못했어요"); return; }
   p.menu=f.menu; save(); if(screen==="timeline"||screen==="add") render(); toast("대표메뉴를 저장했어요"); }
-function mpScanReviews(){ if(!MENUCTX) return;
-  setHTML("mpReviews",`<p class="muted">후기를 읽는 중…</p>`);
-  const go=id=>revScrape(id).then(list=>{ const texts=(list||[]).map(x=>x.text).filter(Boolean);
-    if(!texts.length){ setHTML("mpReviews",`<p class="muted">첫 화면 후기에서 메뉴를 못 찾았어요. 아래 붙여넣기로 시도해 보세요.</p>`); return; }
-    mpRenderMenus(texts,"후기"); }).catch(()=>setHTML("mpReviews",`<p class="muted">후기를 불러오지 못했어요(차단·네트워크). 아래 붙여넣기로 시도해 보세요.</p>`));
-  if(MENUCTX.id) return go(MENUCTX.id);
+function mpScanReviews(){ if(!MENUCTX) return; const my=MENUCTX;   /* 세대 토큰 — 시트를 닫거나 다른 가게를 여는 사이 늦게 온 응답(최대 20여 초)은 폐기 */
+  if(!navigator.onLine){ setHTML("mpReviews",`<p class="muted">오프라인이에요 — 연결 후 다시 눌러주세요. 붙여넣기는 오프라인에서도 돼요.</p>`); return; }
+  setHTML("mpReviews",`<p class="muted">후기를 읽는 중… (본문 + 별점 목록, 두 화면)</p>`);
+  const go=async id=>{
+    const [list,stats]=await Promise.all([revScrape(id).catch(()=>[]),revStats(id).catch(()=>null)]);   /* 본문(기본 페이지) + 별점·태그 통계(모바일 후기 탭 ~20개) 동시 수집 */
+    if(MENUCTX!==my) return; my.stats=stats||null;
+    const texts=(list||[]).map(x=>x.text).filter(Boolean);
+    if(!texts.length&&!(stats&&stats.n)){ setHTML("mpReviews",`<p class="muted">후기를 불러오지 못했어요(차단·네트워크). 아래 붙여넣기로 시도해 보세요.</p>`); return; }   /* 통계가 0건짜리 빈 객체여도 실패로 취급 */
+    mpRenderMenus(texts,"후기"); };
+  if(my.id) return go(my.id);
   if(!KAKAO_KEY){ setHTML("mpReviews",`<p class="muted">이 장소의 카카오 ID를 몰라 자동 조회가 어려워요. 붙여넣기로 찾아보세요.</p>`); return; }
   setHTML("mpReviews",`<p class="muted">장소를 찾는 중…</p>`);
-  loadKakao().then(ok=>{ if(!ok||!MENUCTX){ setHTML("mpReviews",`<p class="muted">카카오 검색이 안 돼요. 붙여넣기로 시도해 보세요.</p>`); return; }
-    const ps=new kakao.maps.services.Places(); const opt=MENUCTX.lat?{location:new kakao.maps.LatLng(MENUCTX.lat,MENUCTX.lng),radius:2000}:{};
-    ps.keywordSearch(MENUCTX.name,(data,st)=>{ if(st===kakao.maps.services.Status.OK&&data&&data[0]){ MENUCTX.id=idOf(data[0].place_url); go(MENUCTX.id); }
+  loadKakao().then(ok=>{ if(MENUCTX!==my) return; if(!ok){ setHTML("mpReviews",`<p class="muted">카카오 검색이 안 돼요. 붙여넣기로 시도해 보세요.</p>`); return; }
+    const ps=new kakao.maps.services.Places(); const opt=my.lat?{location:new kakao.maps.LatLng(my.lat,my.lng),radius:2000}:{};
+    ps.keywordSearch(my.name,(data,st)=>{ if(MENUCTX!==my) return;
+      if(st===kakao.maps.services.Status.OK&&data&&data[0]){ my.id=idOf(data[0].place_url); go(my.id); }
       else setHTML("mpReviews",`<p class="muted">장소를 못 찾았어요. 붙여넣기로 시도해 보세요.</p>`); },opt); }); }
 function mpPasteMenus(){ const el=document.getElementById("mpText"); const raw=(el&&el.value||"").trim();
   if(!raw){ setHTML("mpReviews",`<p class="muted">후기 글을 붙여넣어 주세요.</p>`); return; }
   let texts=raw.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean); if(texts.length<2) texts=[raw];
   mpRenderMenus(texts,"붙여넣기"); }
 function mpRenderMenus(texts,src){
-  setHTML("mpReviews",`<p class="muted">메뉴를 세는 중…</p>`);
-  const heur=extractMenus(texts,MENUCTX&&MENUCTX.name);
-  const paint=(list,byLLM)=>{ if(!document.getElementById("mpReviews")) return;
-    if(!list||!list.length){ setHTML("mpReviews",`<p class="muted">뚜렷하게 많이 언급된 메뉴를 못 찾았어요. 붙여넣기로 더 넣어보세요.</p>`); return; }
-    setHTML("mpReviews",`<div class="muted" style="font-size:12px;margin-bottom:6px">${src} ${texts.length}개에서 ${byLLM?"AI가 정리한":"많이 언급된"} 메뉴 · <span style="opacity:.75">참고용</span></div>`+
-      list.map((x,i)=>`<div class="poi"><div class="nm"><b>${i<3?["🥇","🥈","🥉"][i]:"·"} ${escapeHtml(x.name)}</b><span>${x.count?("후기 "+x.count+"회 언급"):""}${x.why?((x.count?" · ":"")+"“"+escapeHtml(x.why)+"”"):""}</span></div>
-        <button class="go" onclick="openLink('https://map.kakao.com/?q=${encodeURIComponent(MENUCTX?MENUCTX.name+" "+x.name:x.name)}')">검색</button></div>`).join("")); };
-  if(GEMINI_KEY){ llmMenus(texts).then(list=>paint(list,true)).catch(()=>paint(heur,false)); } else paint(heur,false);
+  const my=MENUCTX;   /* 세대 토큰 — LLM 응답(최대 36초) 대기 중 시트가 바뀌면 폐기 */
+  const offMenu=MENUCTX&&MENUCTX.official&&MENUCTX.official.menu, st=MENUCTX&&MENUCTX.stats, vd=statVerdict(st);
+  setHTML("mpReviews",`<p class="muted">${GEMINI_KEY&&texts.length?"AI가 후기를 정리하는 중…":"메뉴를 세는 중…"}</p>`);
+  const head=`${vd?`<div style="margin:2px 0 7px"><span class="bdg ${vd.k}" style="font-size:13px;padding:5px 11px">${vd.t}</span></div>`:""}${st&&st.n?`<div class="muted" style="font-size:12px;margin-bottom:8px">${escapeHtml(statLine(st))}</div>`:""}`;
+  const menuRows=list=>list.map((x,i)=>`<div class="poi"><div class="nm"><b>${i<3?["🥇","🥈","🥉"][i]:"·"} ${escapeHtml(x.name)}${x.off?' <span class="bdg ok" style="font-size:10px;padding:2px 6px">공식</span>':""}</b><span>${x.count?("후기 "+x.count+"회 언급"):(x.off?"공식 대표메뉴":"후기 언급")}${x.why?" · “"+escapeHtml(x.why)+"”":""}</span></div>
+      <button class="go" onclick="openLinkKeep('https://map.kakao.com/?q=${encodeURIComponent(my?my.name+" "+x.name:x.name)}')">검색</button></div>`).join("");
+  const foot=`<p class="muted" style="margin-top:8px;font-size:11px">${src} ${texts.length}개${st&&st.n?` + 별점 ${st.n}개`:""} 기준${texts.length<5?" · 표본 적음":""} · 참고용 — 원문은 저장하지 않아요</p>`;
+  const paintHeur=()=>{ if(MENUCTX!==my||!document.getElementById("mpReviews")) return;
+    const heur=extractMenus(texts,my&&my.name,offMenu);
+    if(!heur.length){ setHTML("mpReviews",head+`<p class="muted">후기에서 메뉴로 보이는 단어를 못 찾았어요.${offMenu?" 위 공식 대표메뉴를 참고하세요.":""} 붙여넣기로 더 넣어보세요.</p>`+foot); return; }
+    setHTML("mpReviews",head+menuRows(heur)+foot); };
+  if(GEMINI_KEY&&texts.length){   /* Gemini 종합 리포트: 총평·메뉴·팁·아쉬운 점. 실패 시 조용히 휴리스틱 폴백 */
+    llmPlaceReport(texts,offMenu).then(rep=>{ if(MENUCTX!==my||!document.getElementById("mpReviews")) return;
+      const menus=rep.menus.length?rep.menus:extractMenus(texts,my&&my.name,offMenu);
+      const sum=rep.summary?`<div style="font-size:13px;color:var(--tx);background:rgba(90,147,255,.1);border:1px solid rgba(90,147,255,.22);border-radius:10px;padding:9px 12px;margin:0 0 10px;line-height:1.55">${escapeHtml(rep.summary)}</div>`:"";
+      const tips=rep.tips.length?`<div style="font-size:13px;font-weight:700;margin:12px 0 4px">💡 후기 속 팁</div>${rep.tips.map(t=>`<div style="font-size:13px;color:var(--tx2);margin:3px 0;line-height:1.5">· ${escapeHtml(t)}</div>`).join("")}`:"";
+      const cau=rep.cautions.length?`<div style="font-size:13px;font-weight:700;margin:12px 0 4px;color:var(--warn)">⚠️ 아쉽다는 언급</div>${rep.cautions.map(t=>`<div style="font-size:13px;color:var(--tx2);margin:3px 0;line-height:1.5">· ${escapeHtml(t)}</div>`).join("")}`:"";
+      setHTML("mpReviews",head+sum+menuRows(menus)+tips+cau+foot);
+    }).catch(paintHeur);
+  } else paintHeur();
 }
 function saveKeys(){ KAKAO_KEY=document.getElementById("kKakao").value.trim(); ODSAY_KEY=document.getElementById("kOdsay").value.trim(); TOUR_KEY=(document.getElementById("kTour").value||"").trim(); GEMINI_KEY=(document.getElementById("kGemini").value||"").trim();
   localStorage.setItem("dongseoni_kakao",KAKAO_KEY); localStorage.setItem("dongseoni_odsay",ODSAY_KEY); localStorage.setItem("dongseoni_tour",TOUR_KEY); localStorage.setItem("dongseoni_gemini",GEMINI_KEY);
@@ -2165,19 +2205,53 @@ function wcong(lat,lng){   /* WGS84→WCONGNAMUL: SDK(toCoords)가 정답 — �
   const y=FN+(M(phi)-M(lat0)+N*Math.tan(phi)*(A*A/2+(5-T+9*Cc+4*Cc*Cc)*A**4/24+(61-58*T+T*T+600*Cc-330*ep2)*A**6/720));
   return {x:Math.round(x*2.5),y:Math.round(y*2.5)};
 }
+let COURSE=null;   /* {pts, start} — 코스 보기 시트 상태(시작점 선택) */
 async function openCourseMap(){
   const pts=buildSteps().filter(s=>s.lat&&s.lng).map(s=>({name:s.name||"장소",lat:s.lat,lng:s.lng}));
   if(pts.length<2){ toast("경로로 볼 장소가 2곳 이상 필요해요"); return; }
   await loadKakao().catch(()=>{});   /* 좌표 변환에 SDK 우선(정확) — 실패해도 공식 폴백으로 진행 */
-  const target=(TRIP.mode==="walk")?"walk":"car";
-  const urlOf=seg=>"https://map.kakao.com/?map_type=TYPE_MAP&target="+target+"&rt="+seg.map(p=>{const w=wcong(p.lat,p.lng);return w.x+","+w.y;}).join(",")+seg.map((p,i)=>"&rt"+(i+1)+"="+encodeURIComponent(String(p.name).slice(0,24))).join("");
-  const segs=[]; for(let i=0;i<pts.length-1;i+=4) segs.push(pts.slice(i,Math.min(i+5,pts.length)));   /* 카카오맵 길찾기 한도=5곳(출발+경유3+도착), 구간 끝점을 다음 구간 시작점으로 겹침 */
-  const transitNote=(TRIP.mode||"transit")==="transit";
-  if(segs.length===1&&!transitNote){ openLink(urlOf(segs[0])); return; }
-  openSheet(`<h3>카카오맵으로 코스 보기</h3>
-    <p class="muted" style="margin-bottom:10px">${transitNote?"카카오맵 길찾기는 경유지를 자동차·도보만 지원해요 — 코스 확인용 자동차 경로로 열려요. 구간별 대중교통은 각 장소의 '길찾기'로.":"카카오맵 길찾기는 한 번에 5곳(출발·경유 3·도착)까지라 구간을 나눴어요."}</p>
-    ${segs.map((sg,i)=>`<div class="poi"><div class="nm"><b>${segs.length>1?("구간 "+(i+1)+" · "):""}${escapeHtml(sg[0].name)} → ${escapeHtml(sg[sg.length-1].name)}</b><span>${sg.length}곳 이어서 길찾기</span></div><button class="go" onclick="openLink('${jsStr(urlOf(sg))}')">열기</button></div>`).join("")}`);
+  COURSE={pts,start:0}; renderCourseSheet();
 }
+function courseStart(i){ if(COURSE&&COURSE.pts[i]){ COURSE.start=i; renderCourseSheet(); } }
+function renderCourseSheet(){
+  if(!COURSE) return; const pts=COURSE.pts, st=Math.min(COURSE.start,pts.length-2);
+  const target=(TRIP.mode==="walk")?"walk":"car";
+  const urlOf=seg=>"https://map.kakao.com/?map_type=TYPE_MAP&target="+target+"&rt="+seg.map(p=>{const w=wcong(p.lat,p.lng);return w.x+","+w.y;}).join(",")+seg.map((p,i)=>"&rt"+(i+1)+"="+encodeURIComponent(cutStr(p.name,24))).join("");   /* cutStr — 이모지 반쪽로 인한 URIError 방지 */
+  const sel=pts.slice(st);
+  const segs=[]; for(let i=0;i<sel.length-1;i+=6) segs.push(sel.slice(i,Math.min(i+7,sel.length)));   /* 카카오맵 길찾기 한도=7곳(출발+경유5+도착), 구간 끝점을 다음 구간 시작점으로 겹침 */
+  const chips=pts.slice(0,-1).map((p,i)=>`<button class="ck${i===st?" on":""}" onclick="courseStart(${i})">${i+1}. ${escapeHtml(String(p.name).slice(0,10))}</button>`).join("");
+  const transitNote=(TRIP.mode||"transit")==="transit";
+  openSheet(`<h3>카카오맵으로 코스 보기</h3>
+    <p class="muted" style="margin-bottom:8px">어디서부터 이어볼까요? 시작점을 고르면 거기서부터 <b style="color:var(--tx2)">출발+경유 5곳+도착</b>으로 열어드려요.${transitNote?" 경유 길찾기는 자동차·도보만 지원돼 코스 확인용 자동차 경로로 열려요(구간별 대중교통은 각 장소 '길찾기').":""}</p>
+    <div class="checks" style="margin-bottom:10px">${chips}</div>
+    ${segs.map((sg,i)=>`<div class="poi"><div class="nm"><b>${segs.length>1?("구간 "+(i+1)+" · "):""}${escapeHtml(sg[0].name)} → ${escapeHtml(sg[sg.length-1].name)}</b><span>${sg.length}곳 이어서 길찾기</span></div><button class="go" onclick="openLinkKeep('${jsStr(urlOf(sg))}')">열기</button></div>`).join("")}`);
+}
+/* ── 구간 이동시간 확인·직접 입력 — 카카오맵(실시간 교통 반영)에서 보고 분 단위로 넣으면 일정·공유링크에 반영 ── */
+function openLegTime(i){
+  const steps=buildSteps(), s=steps[i]; if(!s||!s.frm||!s.travel){ toast("이동 구간이 아니에요"); return; }
+  const a=s.frm, mode=(TRIP.mode||"transit"), M=MODES[mode];
+  const SL={user:"직접 확인",odsay:"실측",road:"도로기반",busan:"부산권",est:"추정"};
+  const cur=userT(a,s,mode);
+  const kakaoUrl="https://map.kakao.com/link/from/"+encodeURIComponent(String(a.name||"출발").slice(0,24))+","+(+a.lat)+","+(+a.lng)+"/to/"+encodeURIComponent(String(s.name||"도착").slice(0,24))+","+(+s.lat)+","+(+s.lng);
+  openSheet(`<h3>${M.ic} ${escapeHtml(a.name||"출발")} → ${escapeHtml(s.name)}</h3>
+    <p class="muted" style="margin-bottom:12px">지금 적용된 시간: <b style="color:var(--tx)">${s.travel}분</b> · ${SL[s.travelSrc]||"추정"}</p>
+    <button class="btn primary" onclick="openLinkKeep('${jsStr(kakaoUrl)}')">카카오맵에서 실제 소요시간 확인</button>
+    <div class="field" style="margin-top:14px"><label>확인한 시간 직접 입력 <span class="muted">(분 · ${M.label} 기준 — 이 구간에 바로 반영)</span></label>
+      <input class="input" id="legMin" type="number" min="1" max="600" inputmode="numeric" placeholder="예: 27" value="${cur!=null?cur:""}"></div>
+    <button class="btn line" onclick="saveLegTime(${i})">저장</button>
+    ${cur!=null?`<button class="btn line" style="margin-top:8px" onclick="clearLegTime(${i})">직접 확인값 지우기 — 자동 계산으로</button>`:""}
+    <p class="muted" style="margin-top:10px;font-size:12px">직접 확인한 시간은 자동 계산보다 우선 적용되고, 공유 링크에도 담겨 동행자 일정에도 반영돼요.</p>`);
+}
+function saveLegTime(i){ const steps=buildSteps(), s=steps[i]; if(!s||!s.frm) return;
+  const v=Math.round(+((document.getElementById("legMin")||{}).value));
+  if(!isFinite(v)||v<1||v>600){ toast("1~600분 사이로 입력해 주세요"); return; }
+  if(!TRIP.mt) TRIP.mt={};
+  TRIP.mt[mtKey((TRIP.mode||"transit"),s.frm,s)]=v;
+  save(); closeSheet(); render(); toast("이동시간 "+v+"분으로 적용됨"); }
+function clearLegTime(i){ const steps=buildSteps(), s=steps[i]; if(!s||!s.frm) return; const mode=(TRIP.mode||"transit");
+  if(TRIP.mt){ const fk=mtKey(mode,s.frm,s), rk=mtKey(mode,s,s.frm);
+    if(TRIP.mt[fk]!=null) delete TRIP.mt[fk]; else delete TRIP.mt[rk]; }   /* 이 구간에 실제 적용 중인 방향만 삭제 — 반대 방향(왕복 일정)의 별도 입력값 보존 */
+  save(); closeSheet(); render(); toast("자동 계산으로 전환"); }
 function stepArg(s){ return `'${jsStr(s.name)}',${(+s.lat||0)},${(+s.lng||0)}`; }
 function openRouteCur(){ if(!CURSTEP) return; openRoute(CURSTEP.name,CURSTEP.lat||0,CURSTEP.lng||0); }
 function openPlanBCur(){ openPlanB(CURSTEP?CURSTEP.area:""); }
@@ -2197,11 +2271,24 @@ function openSOS(){ openSheet(`<h3>긴급</h3>
   <p class="muted" style="margin-top:10px">정확한 응급은 OS 기본 긴급통화가 가장 확실합니다.</p>`);
   navigator.geolocation?.getCurrentPosition(p=>{const t=document.getElementById("geoTxt");if(t){t.textContent=p.coords.latitude.toFixed(5)+", "+p.coords.longitude.toFixed(5);window._geo=t.textContent;}},()=>{const t=document.getElementById("geoTxt");if(t)t.textContent="위치 권한 거부됨";}); }
 function copyGeo(){ if(window._geo){navigator.clipboard?.writeText(window._geo); toast("좌표 복사됨");} }
-function openSheet(html){ document.getElementById("sheet").innerHTML=html; document.getElementById("sheetBg").classList.add("open"); }
-function closeSheet(){ document.getElementById("sheetBg").classList.remove("open"); }
+/* ── 시트 ↔ 하드웨어 뒤로가기 연동 — 설치형 PWA에서 시트 연 채 뒤로가기 시 앱 종료되던 국내 필수 기대치 위반 수정 ── */
+let SHEET_HIST=false, NAVSUP=false;
+function openSheet(html){ document.getElementById("sheet").innerHTML=html; document.getElementById("sheetBg").classList.add("open");
+  if(!SHEET_HIST){ try{ history.pushState({ds:1},""); SHEET_HIST=true; }catch(e){} } }   /* URL 변경 없는 상태 푸시 — 뒤로가기 1회를 시트 닫기로 소비 */
+function closeSheet(){ document.getElementById("sheetBg").classList.remove("open"); MENUCTX=null; COURSE=null;   /* 시트 컨텍스트 무효화 — 늦은 비동기 결과 오염 차단 */
+  if(SHEET_HIST){ SHEET_HIST=false; NAVSUP=true; try{ history.back(); }catch(e){ NAVSUP=false; }
+    setTimeout(()=>{ NAVSUP=false; try{ if(TRIP) history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} },80); } }   /* back 후 해시 재동기화 — 옛 해시로 hashchange 수신시트 뜨는 것 방지 */
+window.addEventListener("popstate",()=>{ if(NAVSUP) return;
+  const bg=document.getElementById("sheetBg");
+  if(bg&&bg.classList.contains("open")){ SHEET_HIST=false; bg.classList.remove("open"); MENUCTX=null; COURSE=null;
+    try{ if(TRIP) history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const bg=document.getElementById("sheetBg"); if(bg&&bg.classList.contains("open")) closeSheet(); } });   /* 접근성: ESC로 시트 닫기 */
+function popOpen(url){ const w=window.open(url,"_blank");   /* "noopener" feature를 쓰면 스펙상 성공해도 null이 반환돼 팝업차단 판정이 항상 오탐 → 열고 나서 opener만 끊음 */
+  if(w){ try{ w.opener=null; }catch(e){} return true; } return false; }
+function openLinkKeep(url){ let u; try{ u=new URL(url,location.href); if(!/^(https?:|tel:|mailto:)$/.test(u.protocol)){ toast("열 수 없는 링크예요"); return; } }catch(e){ return; }
+  if(!popOpen(url)){ try{ navigator.clipboard&&navigator.clipboard.writeText(url); toast("링크를 복사했어요"); }catch(e){ location.href=url; } } }   /* 시트 유지 — 구간을 이어서 열거나, 확인 후 바로 입력할 때 */
 function openLink(url){ let u; try{ u=new URL(url,location.href); if(!/^(https?:|tel:|mailto:)$/.test(u.protocol)){ toast("열 수 없는 링크예요"); return; } }catch(e){ return; }
-  const w=window.open(url,"_blank","noopener");   /* 네이티브 셸(WKWebView)이 target=_blank를 시스템 브라우저(Safari)로 처리. 커스텀 JS 브리지 미사용(App Store 4.7 준수) */
-  if(!w){ try{ navigator.clipboard&&navigator.clipboard.writeText(url); toast("링크를 복사했어요"); }catch(e){ location.href=url; } }   /* 팝업 차단 시 폴백 */
+  if(!popOpen(url)){ try{ navigator.clipboard&&navigator.clipboard.writeText(url); toast("링크를 복사했어요"); }catch(e){ location.href=url; } }   /* 팝업 차단 시 폴백. 네이티브 셸(WKWebView)이 target=_blank를 시스템 브라우저로 처리(App Store 4.7 준수) */
   closeSheet(); }
 /* ── 일정 공유(보내기) ── */
 function shareLink(){ save();
@@ -2240,7 +2327,7 @@ function openRecvSheet(t){ RECV=t; const s=tripSummary(t);
 function acceptShared(){ if(!RECV) return; persist(); const s=tripSummary(RECV); const id=uid();
   TRIPS.push({id,name:s.dest+" (공유)",updatedAt:Date.now(),trip:RECV}); ACTIVE=id; TRIP=RECV; RECV=null;
   onbDone=true; WIZ=null; try{ localStorage.setItem("dongseoni_onb","1"); }catch(e){}   /* 공유로 시작한 첫 사용자는 마법사 생략 */
-  writeTrips(); curDay=0; lastSkyMood=null; closeSheet(); save(); render(); toast("공유받은 일정을 추가했어요"); }
+  writeTrips(); curDay=0; simMinutes=null; REPLAN=null; lastSkyMood=null; closeSheet(); save(); render(); toast("공유받은 일정을 추가했어요"); }
 function dismissShared(){ RECV=null; closeSheet(); try{ history.replaceState(null,"","#t="+encodeTrip(TRIP)); }catch(e){} }
 
 /* ── OS 공유시트 수신(share_target) — 다른 앱에서 '동선이'로 공유하면 부팅 쿼리로 들어옴 ── */
@@ -2376,6 +2463,7 @@ async function validateCands(parsed){
 }
 async function runImport(){
   const url=(document.getElementById("impUrl").value||"").trim(); let text=(document.getElementById("impText").value||"").trim();
+  if(!navigator.onLine&&!text){ setHTML("impResult",`<p class="muted">오프라인이에요 — 본문을 직접 붙여넣거나 연결 후 다시 시도해 주세요.</p>`); return; }
   setHTML("impResult",`<p class="muted">분석 중…</p>`);
   if(!text&&url){ text=await fetchBlog(url,(i,n)=>setHTML("impResult",`<p class="muted">${n}… (${i+1}/3)</p>`)); if(!text){ setHTML("impResult",`<p class="muted">불러오기 실패 — 글이 비공개이거나 네트워크 오류예요. 글 본문을 복사해 붙여넣어 주세요.</p>`); return; } }
   if(!text){ setHTML("impResult",`<p class="muted">본문이나 주소를 입력하세요.</p>`); return; }
@@ -2442,7 +2530,7 @@ function buildImport(){
   if(daysCount()>1){ (window.requestIdleCallback||(f=>setTimeout(f,800)))(()=>{ const seen={};
     for(let i=0;i<daysCount();i++){ const dc=dayCoords(i); const k=wxKey(dc.lat,dc.lng); if(seen[k]||WXCACHE[k]) continue; seen[k]=1; ensureWeather(dc.lat,dc.lng).catch(()=>{}); } }); }
 })();
-setInterval(()=>{ if(document.hidden) return; if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); },30000);   /* 백그라운드 틱 스킵(배터리) — 복귀 보정은 visibilitychange에서 */
+setInterval(()=>{ if(document.hidden) return; dayRollCheck(); if(screen==="home"&&simMinutes==null&&document.getElementById("clkT")) applySim(); },30000);   /* 백그라운드 틱 스킵(배터리) — 복귀 보정은 visibilitychange에서 */
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
 let deferredPrompt=null;
 function installDismiss(){ const b=document.querySelector(".a2hs"); if(b)b.remove(); try{localStorage.setItem("dongseoni_a2hs","1");}catch(e){} }
@@ -2466,7 +2554,7 @@ function maybeInstallHint(){ try{
   if(ios&&safari) setTimeout(()=>showInstallBar("ios"),2600);
 }catch(e){} }
 maybeInstallHint();
-window.addEventListener("hashchange",()=>{ const t=hashTrip(); if(t && encodeTrip(t)!==encodeTrip(TRIP)) openRecvSheet(t); });   /* 수락=새 여행 추가, 거절=내 여행 유지(덮어쓰기 버그 수정) */
+window.addEventListener("hashchange",()=>{ if(NAVSUP) return; const t=hashTrip(); if(t && encodeTrip(t)!==encodeTrip(TRIP)) openRecvSheet(t); });   /* 수락=새 여행 추가, 거절=내 여행 유지. NAVSUP=시트 뒤로가기 처리 중(옛 해시 오인 방지) */
 </script>
 </body>
 </html>
