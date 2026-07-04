@@ -235,6 +235,8 @@ details.setbox[open] summary::after{content:"▴"}
 .checkpop .ring{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#3fe39a,#2bbf80);color:#fff;font-size:46px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 34px rgba(63,227,154,.45);animation:checkPop 1.3s cubic-bezier(.2,1.5,.4,1) forwards}
 @keyframes checkPop{0%{transform:scale(0)}40%{transform:scale(1)}72%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:0}}
 .tl-item[data-pid]{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.grip{flex:none;width:28px;align-self:stretch;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:15px;letter-spacing:-1px;touch-action:none;cursor:grab;border-radius:10px}
+.grip:active{color:var(--accent);cursor:grabbing}
 .tl-item.dragging{opacity:.25}
 .dnd-ghost{position:fixed;left:0;top:0;z-index:9999;pointer-events:none;opacity:.96;will-change:transform}
 .dnd-ghost .tl-body{box-shadow:0 12px 32px rgba(0,0,0,.45);border-color:var(--accent)}
@@ -270,7 +272,7 @@ const DEFAULT_KAKAO = "b2ab3e519bfb9abab0e64ae90e628974";  /* ← 카카오 Java
 const DEFAULT_ODSAY = "4DQlpoJq/PZvN83uj8ZBwg";  /* ← ODsay 웹 키 (도메인 잠금) */
 const DEFAULT_TOUR  = "71e042381154b4346c64a75d139ceaab665d6174012adf26f2ddfbeefe6194ae";  /* ← 한국관광공사 TourAPI(data.go.kr). 도메인잠금 없음 — 쿼터(1,000/일) 도용 시 data.go.kr에서 재발급 후 교체 */
 const DEFAULT_GEMINI= "";  /* ← Gemini(블로그 AI 추출·리뷰 표현점검)는 기본 미탑재. Google 키는 HTTP 리퍼러 제한이 없으면 소스 노출 시 누구나 무료 할당량을 도용할 수 있어(과금·한도소진 위험) 공개 배포엔 넣지 않음. 쓰려면 🔌 설정에서 본인 키 입력(기기에만 저장) — 없어도 블로그 가져오기는 정규식 폴백, 리뷰 점검은 사실정보 표시로 동작 */
-const APP_VER = "2026-07-05a";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
+const APP_VER = "2026-07-05b";  /* 배포 확인용 — 🔌 설정 하단에 표시. 코드 수정 시 날짜 갱신 */
 let ADMIN = false; const ADMIN_PW = "KKM";  /* 관리자(개인용): 별점·리뷰수 정렬 잠금 해제. 공개/공유 링크 경로엔 노출 안 됨 */
 /* 내비·유틸 아이콘(라인 SVG) — 이모지 대신 써서 앱 인상을 정돈 */
 const IC_SHARE='<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.3"/><circle cx="17" cy="6" r="2.3"/><circle cx="17" cy="18" r="2.3"/><path d="M8.1 10.9 14.9 7.2M8.1 13.1l6.8 3.7"/></svg>';
@@ -888,7 +890,7 @@ function renderTimeline(){
   const steps=buildSteps(), at=nowMinutes(), idx=currentStepIndex(steps,at);
   let html=destBar()+daySwitcher()+`<div class="topbar"><h2>Day ${curDay+1} 동선</h2><button class="icbtn" onclick="shareLink()" title="공유">${IC_SHARE}</button></div><div class="wrap">`;
   if(steps.length===0){ html+=`<p class="muted">이 날 일정이 비었어요. ➕ 담기 탭에서 장소를 담아보세요.</p><button class="btn primary" style="margin-top:10px" onclick="gotoAdd()">➕ 장소 담으러 가기</button></div>`; return html; }
-  html+=`<p class="muted" style="margin:0 0 10px;font-size:12px">카드를 <b style="color:var(--tx2)">꾹 눌러 끌면</b> 순서가 바뀌어요 · 📌 시각을 고정하면 자동 정리에서도 지켜져요</p>`;
+  html+=`<p class="muted" style="margin:0 0 10px;font-size:12px"><b style="color:var(--tx2)">⠿를 잡아 끌면</b> 순서가 바뀌어요(카드 꾹 눌러도 돼요) · 📌 시각 고정은 자동 정리에서도 지켜져요</p>`;
   let lastR=null; const sun=sunMin(curDate());
   let sunR=sun?sun.rise:null, sunS=sun?sun.set:null;   /* 일출·일몰을 시간 순서에 맞춰 라인으로 삽입 */
   const sunLine=(ic,lab,t)=>`<div class="sunline"><span>${ic} ${lab} ${minToHM(t).slice(0,5)}</span></div>`;
@@ -906,7 +908,7 @@ function renderTimeline(){
     const pid=s.kind==="place"?s.place.id:"";
     html+=`<div class="tl-item"${pid?` data-pid="${pid}"`:` data-fixed="1"`}><div class="tl-time"${pid?` onclick="openTimeEdit('${pid}')" style="cursor:pointer"`:""}>${minToHM(s.arrive).slice(0,5)}${s.fixed?" (고정)":""}<small>${s.kind==="air"?"도착":s.kind==="stay"?"숙소":TYPE_META[s.place.type].label}</small></div>
       <div class="tl-body ${cls}"><div class="tl-name">${cls==="done"?'<span style="color:var(--ok);font-weight:700">✓</span> ':""}${typeIc(s)} ${escapeHtml(s.name)} ${badge}</div>
-        <div class="tl-meta">${meta}</div>${s.kind==="place"&&s.place.menu?`<div class="tl-note" style="font-style:normal;color:var(--warn)">🍜 ${escapeHtml(s.place.menu.length>46?s.place.menu.slice(0,46)+"…":s.place.menu)}</div>`:""}${s.kind==="place"&&s.place.note?`<div class="tl-note">“${escapeHtml(s.place.note.length>42?s.place.note.slice(0,42)+"…":s.place.note)}”</div>`:""}<div class="tl-acts"><button class="go" onclick="openRoute(${stepArg(s)})">길찾기</button>${s.kind==="place"&&s.place.type==="eat"?`<button onclick="openMenuPickPlace('${pid}')">🍜 뭐먹지</button>`:""}${s.kind==="place"?`<button onclick="openTimeEdit('${pid}')">📌 시각</button><button onclick="openVisitNote('${pid}')">기록</button>`:""}</div></div></div>`;
+        <div class="tl-meta">${meta}</div>${s.kind==="place"&&s.place.menu?`<div class="tl-note" style="font-style:normal;color:var(--warn)">🍜 ${escapeHtml(s.place.menu.length>46?s.place.menu.slice(0,46)+"…":s.place.menu)}</div>`:""}${s.kind==="place"&&s.place.note?`<div class="tl-note">“${escapeHtml(s.place.note.length>42?s.place.note.slice(0,42)+"…":s.place.note)}”</div>`:""}<div class="tl-acts"><button class="go" onclick="openRoute(${stepArg(s)})">길찾기</button>${s.kind==="place"&&s.place.type==="eat"?`<button onclick="openMenuPickPlace('${pid}')">🍜 뭐먹지</button>`:""}${s.kind==="place"?`<button onclick="openTimeEdit('${pid}')">📌 시각</button><button onclick="openVisitNote('${pid}')">기록</button>`:""}</div></div>${pid?`<div class="grip" aria-hidden="true">⠿</div>`:""}</div>`;
   });
   if(sunS!=null) html+=sunLine("🌇","일몰",sunS);   /* 일정이 일몰 전에 끝나면 마지막에 표시 */
   html+=`<button class="btn primary" style="margin-top:10px" onclick="optimizeDay()">최적 코스로 자동 정리</button>
@@ -1029,9 +1031,14 @@ function bindScreen(){ if(screen==="add"&&addTarget==="day"){ const t=document.g
 /* 길게 눌러 드래그 순서변경 (타임라인) */
 let DND=null; const LP=320, SLOP=10;   /* 길게 누르기 480→320ms — 드래그가 유일한 순서변경 수단이 되면서 잡기 쉽게 */
 function bindTimelineDnD(){ document.querySelectorAll(".wrap .tl-item[data-pid]").forEach(row=>row.addEventListener("pointerdown",dndDown)); }
+function dndTouch(e){ if(DND&&DND.armed&&e.cancelable) e.preventDefault(); }   /* 무장 후 touchmove 차단 — touch-action:pan-y가 제스처를 스크롤로 가져가며 pointercancel로 드래그를 죽이던 것(iOS 실기기 확인) 방지. 무장 전엔 그대로 둬 일반 스크롤 유지 */
 function dndDown(e){ if(e.button>0) return; if(e.target.closest(".tl-acts,button,a,.tl-time")) return;
-  const row=e.currentTarget; DND={row,pid:row.dataset.pid,x0:e.clientX,y0:e.clientY,ptr:e.pointerId,armed:false,ghost:null,drop:null,timer:setTimeout(()=>dndArm(),LP)};
-  row.addEventListener("pointermove",dndMove,{passive:false}); row.addEventListener("pointerup",dndUp); row.addEventListener("pointercancel",dndUp); }
+  const row=e.currentTarget, onGrip=!!e.target.closest(".grip");
+  DND={row,pid:row.dataset.pid,x0:e.clientX,y0:e.clientY,ptr:e.pointerId,armed:false,ghost:null,drop:null,timer:null};
+  row.addEventListener("pointermove",dndMove,{passive:false}); row.addEventListener("pointerup",dndUp); row.addEventListener("pointercancel",dndCancel);
+  row.addEventListener("touchmove",dndTouch,{passive:false});   /* 터치 이벤트는 시작 요소에 계속 오므로 row에 부착 */
+  if(onGrip){ if(e.cancelable) e.preventDefault(); dndArm(); }   /* ⠿ 핸들(touch-action:none)은 즉시 드래그 — 길게 누르기 불필요, 전 기기 확실 */
+  else DND.timer=setTimeout(()=>dndArm(),LP); }
 function dndArm(){ if(!DND) return; DND.armed=true; try{getSelection().removeAllRanges();}catch(_){} if(navigator.vibrate) try{navigator.vibrate(12);}catch(_){}
   document.body.classList.add("dnd-active"); const row=DND.row,r=row.getBoundingClientRect(); try{row.setPointerCapture(DND.ptr);}catch(_){}
   const g=row.cloneNode(true); g.className="tl-item dnd-ghost"; g.style.width=r.width+"px"; DND.offX=DND.x0-r.left; DND.offY=DND.y0-r.top; DND.ghost=g; document.body.appendChild(g); dndGhostMove(DND.x0,DND.y0); row.classList.add("dragging");
@@ -1053,13 +1060,16 @@ function dndUpdateDrop(y){ if(!DND) return;
     if(line.parentNode!==tgt.parentNode||line.nextSibling!==ref) tgt.parentNode.insertBefore(line, ref);   /* 위치 바뀔 때만 이동(같으면 no-op) */
     DND.drop={pid:tgt.dataset.pid,before}; }
   else { if(line.parentNode) line.remove(); DND.drop=null; } }
-function dndUp(e){ if(!DND) return; clearTimeout(DND.timer); if(DND.armed){ if(e&&e.preventDefault) e.preventDefault(); dndCommit(); } dndCleanup(); }
-function dndCommit(){ const arr=TRIP.days[curDay].places, from=arr.findIndex(p=>p.id===DND.pid); if(from<0) return; let to=arr.length-1;
-  if(DND.drop){ const ti=arr.findIndex(p=>p.id===DND.drop.pid); to=DND.drop.before?ti:ti+1; }
+function dndUp(e){ if(!DND) return; clearTimeout(DND.timer); if(DND.armed){ if(e&&e.preventDefault&&e.cancelable) e.preventDefault(); dndCommit(); } dndCleanup(); }
+function dndCancel(){ if(!DND) return; clearTimeout(DND.timer); dndCleanup(); }   /* 브라우저가 제스처를 가져간 경우(스크롤 등) — 커밋·토스트 없이 조용히 취소(이동 없이 '순서 변경됨' 뜨던 버그 수정) */
+function dndCommit(){ if(!DND.drop) return;   /* 드롭 위치가 계산된 적 없으면(제자리에서 놓음) 재정렬·토스트 없음 — 끝으로 튀던 버그 수정 */
+  const arr=TRIP.days[curDay].places, from=arr.findIndex(p=>p.id===DND.pid); if(from<0) return; let to;
+  { const ti=arr.findIndex(p=>p.id===DND.drop.pid); to=DND.drop.before?ti:ti+1; }
   const [it]=arr.splice(from,1); if(to>from) to--; to=Math.max(0,Math.min(to,arr.length)); arr.splice(to,0,it); save(); render(); toast("순서 변경됨"); }
 function dndCleanup(){ if(!DND) return; if(DND.raf) cancelAnimationFrame(DND.raf); const row=DND.row;
-  if(row){ row.removeEventListener("pointermove",dndMove); row.removeEventListener("pointerup",dndUp); row.removeEventListener("pointercancel",dndUp); try{row.releasePointerCapture(DND.ptr);}catch(_){} row.classList.remove("dragging"); }
+  if(row){ row.removeEventListener("pointermove",dndMove); row.removeEventListener("pointerup",dndUp); row.removeEventListener("pointercancel",dndCancel); row.removeEventListener("touchmove",dndTouch); try{row.releasePointerCapture(DND.ptr);}catch(_){} row.classList.remove("dragging"); }
   if(DND.ghost) DND.ghost.remove(); if(DND.line&&DND.line.parentNode) DND.line.remove(); document.querySelectorAll(".drop-line").forEach(d=>d.remove()); document.body.classList.remove("dnd-active"); DND=null; }
+document.addEventListener("contextmenu",e=>{ if(DND) e.preventDefault(); });   /* 길게 누르기 중 컨텍스트 메뉴(안드로이드 등)로 드래그 끊김 방지 */
 function toggleTypeFields(v){ document.getElementById("eatFields").classList.toggle("hide",v!=="eat"); document.getElementById("seeIndoor").classList.toggle("hide",v!=="see"); }
 let seeIndoorVal=false;
 function toggleSeeIndoor(v){ seeIndoorVal=v; document.getElementById("seeOut").classList.toggle("on",!v); document.getElementById("seeIn").classList.toggle("on",v); }
