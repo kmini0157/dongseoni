@@ -1,5 +1,5 @@
 /* 동선이 서비스워커 — 셸 오프라인 캐시. network-first(온라인=최신, 오프라인=캐시) */
-const CACHE = "dongseoni-v4";
+const CACHE = "dongseoni-v9";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg", "./icon-maskable.svg", "./apple-touch-icon-180.png", "./icon-192.png", "./icon-512.png", "./icon-maskable-192.png", "./icon-maskable-512.png", "./favicon-32.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(()=>{}).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
